@@ -1,0 +1,22 @@
+{
+  "name": "wordpath",
+  "source": "src/index.html",
+  "scripts": {
+    "build": "parcel build --public-url 'https://kflorence.github.io/wordpath'",
+    "start": "parcel",
+    "test": "npm run test-lint",
+    "test-lint": "standard"
+  },
+  "browserslist": [
+    "defaults"
+  ],
+  "eslintConfig": {
+    "env": {
+      "browser": true
+    }
+  },
+  "devDependencies": {
+    "parcel": "^2.11.0",
+    "standard": "^17.1.0"
+  }
+}

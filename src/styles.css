@@ -1,0 +1,163 @@
+html,
+body {
+  background-color: #50514F;
+  color: black;
+  font-family: 'Noto Sons Mono', monospace;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+  width: 100%;
+}
+
+body {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+}
+
+#container {
+  margin: 1rem;
+  width: 100%;
+}
+
+.flex-center,
+.flex-left,
+.flex-right {
+  align-items: stretch;
+  display: flex;
+  flex: 1;
+}
+
+.flex-center {
+  justify-content: center;
+}
+
+.flex-left {
+  justify-content: flex-start;
+}
+
+.flex-right {
+  justify-content: flex-end;
+}
+
+/* https://coolors.co/50514f-b4adea-fdfff7-59ffa0-ffed65 */
+
+.grid {
+  column-gap: 4px;
+  cursor: pointer;
+  display: grid;
+  font-size: 2em;
+  margin: auto;
+  row-gap: 4px;
+  touch-action: none;
+  user-select: none;
+}
+
+.grid .cell {
+  align-items: center;
+  aspect-ratio: 1;
+  background-color: #A7A9A4;
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  text-transform: uppercase;
+  min-width: 3rem;
+}
+
+.grid .cell.pending {
+  background-color: #FFED65;
+}
+
+.grid .cell.locked {
+  background-color: #59FFA0;
+}
+
+.grid .cell.start {
+  text-decoration: 4px rgba(0, 0, 0, 0.25) underline;
+  text-underline-offset: 0.5rem;
+}
+
+.grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+  max-width: 400px;
+}
+
+.grid-8 {
+  grid-template-columns: repeat(8, 1fr);
+  max-width: 800px;
+}
+
+.grid-12 {
+  grid-template-columns: repeat(12, 1fr);
+  max-width: 1200px;
+}
+
+/* https://developers.google.com/fonts/docs/material_icons */
+.material-symbols-outlined {
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 24;
+  user-select: none;
+  vertical-align: middle;
+}
+
+.material-symbols-outlined.fill {
+  font-variation-settings:
+    'FILL' 1,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 24;
+  user-select: none;
+}
+
+.menu {
+  align-items: stretch;
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.menu li {
+  align-items: center;
+  border-left: 1px solid #ddd;
+  cursor: pointer;
+  display: flex;
+  padding: 1em;
+}
+.menu.non-interactive li,
+.menu li.non-interactive {
+  cursor: default;
+}
+
+.menu li:first-child {
+  border: none;
+}
+
+.menu:not(.non-interactive) li:not(.disabled,.non-interactive,.selected):hover {
+  background-color: #eee;
+}
+
+.menu li.disabled {
+  color: #ccc;
+  cursor: default;
+}
+
+.menu li.selected {
+  background-color: #333;
+  box-sizing: border-box;
+  color: white;
+}
+
+@media (min-width: 426px) {
+
+}
+
+@media (max-width: 1024px) {
+  dialog {
+    width: 100%;
+  }
+}
