@@ -65,15 +65,15 @@ body {
   min-width: 3rem;
 }
 
-.grid .cell.pending {
+.grid .cell-selected {
   background-color: #FFED65;
 }
 
-.grid .cell.locked {
+.grid .cell-locked {
   background-color: #59FFA0;
 }
 
-.grid .cell.start {
+.grid .cell-first {
   text-decoration: 4px rgba(0, 0, 0, 0.25) underline;
   text-underline-offset: 0.5rem;
 }

@@ -18,5 +18,9 @@
   "devDependencies": {
     "parcel": "^2.11.0",
     "standard": "^17.1.0"
+  },
+  "dependencies": {
+    "dictionary-en": "^4.0.0",
+    "nspell": "^2.1.5"
   }
 }
