@@ -14,7 +14,7 @@ export class Grid extends Stateful {
 
   constructor (parent, state) {
     super(state)
-console.log(state)
+
     this.parent = parent
     this.width = state[0].length
 
@@ -32,7 +32,6 @@ console.log(state)
 
     const last = this.selected[this.selected.length - 1]
     if (last && !last.isNeighbor(cell)) {
-      console.debug('Ignoring non-neighbor cell selection. last:', last.toString(), 'cell:', cell.toString())
       return
     }
 
@@ -70,7 +69,8 @@ console.log(state)
 
   #onPointerDown (event) {
     const cell = this.cells.find((cell) => cell.$element === event.target)
-    if (!cell) {
+    const lastCell = this.parent.getLastCell()
+    if (!cell || (lastCell && !lastCell.isNeighbor(cell))) {
       return
     }
 

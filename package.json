@@ -16,11 +16,13 @@
     }
   },
   "devDependencies": {
+    "@parcel/transformer-inline-string": "^2.11.0",
     "parcel": "^2.11.0",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
     "standard": "^17.1.0"
   },
   "dependencies": {
-    "dictionary-en": "^4.0.0",
-    "nspell": "^2.1.5"
+    "word-list": "^3.1.0"
   }
 }

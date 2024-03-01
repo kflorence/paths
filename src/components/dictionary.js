@@ -1,21 +1,9 @@
-import en from 'dictionary-en'
-import nspell from 'nspell'
-
-const dictionaries = { en }
+import words from 'bundle-text:word-list/words.txt'
 
 export class Dictionary {
-  #dictionary
-
-  language
-
-  constructor (language = Dictionary.Languages.English) {
-    this.language = language
-    this.#dictionary = nspell(dictionaries[this.language])
-  }
+  words = words.split('\n')
 
   isValid (word) {
-    return this.#dictionary.correct(word)
+    return this.words.includes(word)
   }
-
-  static Languages = Object.freeze({ English: 'en' })
 }
