@@ -1,35 +1,39 @@
 import { Stateful } from './stateful'
 import { EventListeners } from './eventListeners'
-
-let uniqueId = 0
+import { Coordinates } from './coordinates'
 
 export class Cell extends Stateful {
   $element = document.createElement('div')
 
-  column
   content
-  id = uniqueId++
-  row
+  coordinates
 
   #eventListeners = new EventListeners({ context: this, element: this.$element })
 
-  constructor (parent, state, configuration) {
+  constructor (parent, state, { row, column }) {
     super(state)
 
-    this.column = configuration.column
+    this.coordinates = new Coordinates(row, column)
     this.content = state.content
     this.parent = parent
-    this.row = configuration.row
 
     this.#setup()
   }
 
-  getNeighbors () {
-    return Cell.Neighbors.map((neighbor) => [this.row + neighbor[0], this.column + neighbor[1]])
+  getDirection (cell) {
+    return this.getNeighbor(cell).direction
   }
 
-  isNeighbor (cell) {
-    return this.getNeighbors().some((neighbor) => cell.row === neighbor[0] && cell.column === neighbor[1])
+  getNeighbor (cell) {
+    return this.getNeighbors().find((neighbor) => cell.coordinates.equals(neighbor.coordinates))
+  }
+
+  getNeighbors () {
+    return Cell.Neighbors.map((neighbor) => {
+      const { direction, offset } = neighbor
+      const coordinates = this.coordinates.add(offset)
+      return { coordinates, direction }
+    })
   }
 
   teardown () {
@@ -38,7 +42,7 @@ export class Cell extends Stateful {
   }
 
   toString () {
-    return `[Cell:${[this.row, this.column].join(',')}]`
+    return `[Cell:${this.coordinates.toString()}]`
   }
 
   #onPointerEnter () {
@@ -51,13 +55,33 @@ export class Cell extends Stateful {
     this.#eventListeners.add([{ handler: this.#onPointerEnter, type: 'pointerenter' }])
   }
 
+  static Directions = Object.freeze({
+    Down: 'direction-down',
+    Left: 'direction-left',
+    Right: 'direction-right',
+    Up: 'direction-up'
+  })
+
   static Events = Object.freeze({ Enter: 'cell-enter' })
 
-  static Neighbors = [[0, -1], [0, 1], [-1, 0], [1, 0]]
+  static Neighbors = [
+    {
+      direction: Cell.Directions.Down,
+      offset: new Coordinates(1, 0)
+    },
+    {
+      direction: Cell.Directions.Left,
+      offset: new Coordinates(0, -1)
+    },
+    {
+      direction: Cell.Directions.Right,
+      offset: new Coordinates(0, 1)
+    },
+    {
+      direction: Cell.Directions.Up,
+      offset: new Coordinates(-1, 0)
+    }
+  ]
 
-  static States = Object.freeze({
-    First: 'cell-first',
-    Locked: 'cell-locked',
-    Selected: 'cell-selected'
-  })
+  static States = Object.freeze({ Pending: 'pending' })
 }

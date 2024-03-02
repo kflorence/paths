@@ -1,6 +1,7 @@
 import { Cell } from './cell'
 import { Stateful } from './stateful'
 import { EventListeners } from './eventListeners'
+import { Game } from './game'
 
 export class Grid extends Stateful {
   $element = document.getElementById('grid')
@@ -25,17 +26,35 @@ export class Grid extends Stateful {
     this.setup()
   }
 
+  cancel () {
+    this.#pointerDownEvent = undefined
+
+    if (this.isPending()) {
+      this.parent.select(this.selected)
+      this.selected = []
+    }
+  }
+
+  getLastSelected () {
+    return this.selected[this.selected.length - 1]
+  }
+
+  isPending () {
+    return this.selected.length > 0
+  }
+
   select (cell) {
-    if (!this.#pointerDownEvent) {
+    if (!this.#pointerDownEvent || cell.$element.classList.contains(Game.States.Word)) {
       return
     }
 
-    const last = this.selected[this.selected.length - 1]
-    if (last && !last.isNeighbor(cell)) {
+    const last = this.getLastSelected() ?? this.parent.getLastSelected()
+    if (last && !last.getNeighbor(cell)) {
       return
     }
 
-    cell.$element.classList.add(Cell.States.Selected)
+    cell.$element.classList.add(Cell.States.Pending)
+
     this.selected.push(cell)
   }
 
@@ -51,10 +70,7 @@ export class Grid extends Stateful {
       this.cells.push(cell)
     })
 
-    this.#eventListeners.add([
-      { handler: this.#onPointerDown, type: 'pointerdown' },
-      { handler: this.#onPointerUp, type: 'pointerup' }
-    ])
+    this.#eventListeners.add([{ handler: this.#onPointerDown, type: 'pointerdown' }])
   }
 
   teardown () {
@@ -68,19 +84,11 @@ export class Grid extends Stateful {
   }
 
   #onPointerDown (event) {
-    const cell = this.cells.find((cell) => cell.$element === event.target)
-    const lastCell = this.parent.getLastCell()
-    if (!cell || (lastCell && !lastCell.isNeighbor(cell))) {
-      return
-    }
-
     this.#pointerDownEvent = event
-    this.select(cell)
-  }
 
-  #onPointerUp () {
-    this.#pointerDownEvent = undefined
-    this.parent.check(this.selected)
-    this.selected = []
+    const cell = this.cells.find((cell) => cell.$element === event.target)
+    if (cell) {
+      this.select(cell)
+    }
   }
 }

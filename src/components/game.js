@@ -4,8 +4,8 @@ import { Dictionary } from './dictionary'
 
 export class Game {
   dictionary
+  selected = []
   grid
-  words = []
 
   constructor () {
     // TODO: this should be randomly generated, but consistent based on a seed
@@ -20,21 +20,52 @@ export class Game {
 
     this.dictionary = new Dictionary()
     this.grid = new Grid(this, configuration.grid)
+
+    // Listening on document to handle pointerup outside the grid area
+    document.addEventListener('pointerup', () => this.grid.cancel())
   }
 
-  getLastCell () {
-    const cells = this.words[this.words.length - 1]
-    if (cells) {
-      return cells[cells.length - 1]
-    }
+  getLastSelected () {
+    const path = this.getPath()
+    return path[path.length - 1]
   }
 
-  check (cells) {
+  getPath () {
+    return this.selected.flat()
+  }
+
+  select (cells) {
     const word = cells.map((cell) => cell.content).join('')
+
     if (this.dictionary.isValid(word)) {
-      cells.forEach((cell) => cell.$element.classList.add(Cell.States.Locked))
-      this.words.push(cells)
+      const lastIndex = cells.length - 1
+      cells.forEach((cell, index) => {
+        const classNames = [Game.States.Word]
+
+        if (index < lastIndex) {
+          classNames.push(cell.getDirection(cells[index + 1]))
+          if (index === 0) {
+            classNames.push(Game.States.WordStart)
+            if (this.selected.length === 0) {
+              classNames.push(Game.States.PathStart)
+            }
+          }
+        } else {
+          classNames.push(Game.States.WordEnd)
+        }
+
+        cell.$element.classList.add(...classNames)
+      })
+      this.selected.push(cells)
     }
-    cells.forEach((cell) => cell.$element.classList.remove(Cell.States.Selected))
+
+    cells.forEach((cell) => cell.$element.classList.remove(Cell.States.Pending))
   }
+
+  static States = Object.freeze({
+    PathStart: 'path-start',
+    Word: 'word',
+    WordStart: 'word-start',
+    WordEnd: 'word-end'
+  })
 }
