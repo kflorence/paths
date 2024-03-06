@@ -2,11 +2,14 @@ import { Stateful } from './stateful'
 import { EventListeners } from './eventListeners'
 import { Coordinates } from './coordinates'
 
+let uniqueId = 0
+
 export class Cell extends Stateful {
   $element = document.createElement('div')
 
   content
   coordinates
+  id = uniqueId++
 
   #eventListeners = new EventListeners({ context: this, element: this.$element })
 
@@ -18,6 +21,10 @@ export class Cell extends Stateful {
     this.parent = parent
 
     this.#setup()
+  }
+
+  equals (other) {
+    return this.id === other.id
   }
 
   getDirection (cell) {
@@ -34,6 +41,11 @@ export class Cell extends Stateful {
       const coordinates = this.coordinates.add(offset)
       return { coordinates, direction }
     })
+  }
+
+  reset () {
+    this.$element.className = 'cell'
+    this.$element.textContent = this.content
   }
 
   teardown () {

@@ -48,12 +48,27 @@ export class Grid extends Stateful {
       return
     }
 
-    const last = this.getLastSelected() ?? this.parent.getLastSelected()
+    const index = this.selected.findIndex((selected) => selected.equals(cell))
+    if (index > -1) {
+      // Going back to an already selected cell, remove everything selected after it
+      const removed = this.selected.splice(index + 1)
+      removed.forEach((c) => c.reset())
+      return
+    }
+
+    const lastSelected = this.getLastSelected()
+    const last = lastSelected ?? this.parent.getLastSelected()
     if (last && !last.getNeighbor(cell)) {
       return
     }
 
-    cell.$element.classList.add(Cell.States.Pending)
+    const classNames = [Cell.States.Pending]
+
+    if (lastSelected) {
+      classNames.push(cell.getDirection(lastSelected))
+    }
+
+    cell.$element.classList.add(...classNames)
 
     this.selected.push(cell)
   }

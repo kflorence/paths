@@ -11,10 +11,10 @@ export class Game {
     // TODO: this should be randomly generated, but consistent based on a seed
     const configuration = {
       grid: [
-        [{ content: "a" }, { content: "q" }, { content: "p" }, { content: "m" }],
-        [{ content: "x" }, { content: "u" }, { content: "y" }, { content: "i" }],
-        [{ content: "e" }, { content: "i" }, { content: "r" }, { content: "l" }],
-        [{ content: "s" }, { content: "p" }, { content: "e" }, { content: "d" }]
+        [{ content: 'a' }, { content: 'q' }, { content: 'p' }, { content: 'm' }],
+        [{ content: 'x' }, { content: 'u' }, { content: 'y' }, { content: 'i' }],
+        [{ content: 'e' }, { content: 'i' }, { content: 'r' }, { content: 'l' }],
+        [{ content: 's' }, { content: 'p' }, { content: 'e' }, { content: 'd' }]
       ]
     }
 
@@ -41,9 +41,7 @@ export class Game {
       const lastIndex = cells.length - 1
       cells.forEach((cell, index) => {
         const classNames = [Game.States.Word]
-
         if (index < lastIndex) {
-          classNames.push(cell.getDirection(cells[index + 1]))
           if (index === 0) {
             classNames.push(Game.States.WordStart)
             if (this.selected.length === 0) {
@@ -55,11 +53,12 @@ export class Game {
         }
 
         cell.$element.classList.add(...classNames)
+        cell.$element.classList.remove(Cell.States.Pending)
       })
       this.selected.push(cells)
+    } else {
+      cells.forEach((cell) => cell.reset())
     }
-
-    cells.forEach((cell) => cell.$element.classList.remove(Cell.States.Pending))
   }
 
   static States = Object.freeze({
