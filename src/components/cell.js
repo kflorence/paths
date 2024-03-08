@@ -14,6 +14,8 @@ export class Cell extends Stateful {
   #eventListeners = new EventListeners({ context: this, element: this.$element })
 
   constructor (parent, state, { row, column }) {
+    state.classNames ??= ['cell']
+
     super(state)
 
     this.coordinates = new Coordinates(row, column)
@@ -21,6 +23,11 @@ export class Cell extends Stateful {
     this.parent = parent
 
     this.#setup()
+  }
+
+  add (classNames) {
+    this.$element.classList.add(...Array.isArray(classNames) ? classNames : [classNames])
+    this.update()
   }
 
   equals (other) {
@@ -43,9 +50,20 @@ export class Cell extends Stateful {
     })
   }
 
+  has (className) {
+    return this.$element.classList.contains(className)
+  }
+
+  remove (classNames) {
+    this.$element.classList.remove(...Array.isArray(classNames) ? classNames : [classNames])
+    this.update()
+  }
+
   reset () {
-    this.$element.className = 'cell'
-    this.$element.textContent = this.content
+    const original = this.getOriginalState()
+    this.$element.className = original.classNames.join(' ')
+    this.$element.textContent = original.content
+    this.updateState(() => original)
   }
 
   teardown () {
@@ -55,6 +73,12 @@ export class Cell extends Stateful {
 
   toString () {
     return `[Cell:${this.coordinates.toString()}]`
+  }
+
+  update (content) {
+    this.$element.textContent = (content ??= this.$element.textContent)
+    const classNames = Array.from(this.$element.classList.values())
+    this.updateState(() => ({ content, classNames }))
   }
 
   #onPointerEnter () {

@@ -7,19 +7,9 @@ export class Game {
   selected = []
   grid
 
-  constructor () {
-    // TODO: this should be randomly generated, but consistent based on a seed
-    const configuration = {
-      grid: [
-        [{ content: 'a' }, { content: 'q' }, { content: 'p' }, { content: 'm' }],
-        [{ content: 'x' }, { content: 'u' }, { content: 'y' }, { content: 'i' }],
-        [{ content: 'e' }, { content: 'i' }, { content: 'r' }, { content: 'l' }],
-        [{ content: 's' }, { content: 'p' }, { content: 'e' }, { content: 'd' }]
-      ]
-    }
-
+  constructor (state) {
     this.dictionary = new Dictionary()
-    this.grid = new Grid(this, configuration.grid)
+    this.grid = new Grid(this, state.grid)
 
     // Listening on document to handle pointerup outside the grid area
     document.addEventListener('pointerup', () => this.grid.cancel())
@@ -34,8 +24,12 @@ export class Game {
     return this.selected.flat()
   }
 
+  getWords () {
+    return this.selected.map(Game.getWord)
+  }
+
   select (cells) {
-    const word = cells.map((cell) => cell.content).join('')
+    const word = Game.getWord(cells)
 
     if (this.dictionary.isValid(word)) {
       const lastIndex = cells.length - 1
@@ -52,13 +46,17 @@ export class Game {
           classNames.push(Game.States.WordEnd)
         }
 
-        cell.$element.classList.add(...classNames)
-        cell.$element.classList.remove(Cell.States.Pending)
+        cell.add(classNames)
+        cell.remove(Cell.States.Pending)
       })
       this.selected.push(cells)
     } else {
       cells.forEach((cell) => cell.reset())
     }
+  }
+
+  static getWord (cells) {
+    return cells.map((cell) => cell.content).join('')
   }
 
   static States = Object.freeze({

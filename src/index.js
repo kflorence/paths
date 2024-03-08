@@ -1,5 +1,7 @@
 import { Game } from './components/game'
+import { State } from './components/state'
 
-const game = new Game()
+const state = new State()
+const game = new Game(state.getState())
 
 window.game = game

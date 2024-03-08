@@ -118,18 +118,18 @@ body {
   right: -8px;
 }
 
-.grid-4 {
-  grid-template-columns: repeat(4, 1fr);
+.grid-5 {
+  grid-template-columns: repeat(5, 1fr);
   max-width: 400px;
 }
 
-.grid-8 {
-  grid-template-columns: repeat(8, 1fr);
+.grid-7 {
+  grid-template-columns: repeat(7, 1fr);
   max-width: 800px;
 }
 
-.grid-12 {
-  grid-template-columns: repeat(12, 1fr);
+.grid-9 {
+  grid-template-columns: repeat(9, 1fr);
   max-width: 1200px;
 }
 

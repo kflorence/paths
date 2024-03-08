@@ -1,20 +1,26 @@
 export class Stateful {
-  #state = {}
+  #current
+  #original
 
   constructor (state) {
     this.setState(state)
+    this.#original = this.getState()
+  }
+
+  getOriginalState () {
+    return structuredClone(this.#original)
   }
 
   getState () {
-    return structuredClone(this.#state)
+    return structuredClone(this.#current)
   }
 
   setState (state) {
-    this.#state = structuredClone(state)
+    this.#current = structuredClone(state)
   }
 
   updateState (updater, dispatchEvent = true) {
-    updater(this.#state)
+    this.#current = updater(this.#current) ?? this.#current
 
     if (dispatchEvent) {
       document.dispatchEvent(new CustomEvent(Stateful.Events.Update, { object: this }))
