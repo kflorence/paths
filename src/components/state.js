@@ -7,7 +7,7 @@ const params = new URLSearchParams(location.search)
 
 export class State extends Stateful {
   constructor () {
-    let id = params.get(State.Keys.id) ?? localStorage.getItem(State.Keys.id) ?? State.defaultId()
+    let id = params.get(State.Keys.id) ?? State.defaultId()
     const date = Date.parse(id)
     if (!isNaN(date) && date > State.today) {
       console.debug(`Defaulting to current day puzzle given ID in the future: ${id}`)
@@ -15,14 +15,14 @@ export class State extends Stateful {
     }
 
     // Load existing state from localStorage, otherwise generate a new one
-    const state = localStorage.getItem(id)
+    const seed = Grid.Generator.getSeed(id, Grid.getSize(params.get(State.Keys.size)))
+    const state = localStorage.getItem(seed)
     super(state ? JSON.parse(state) : new Grid.Generator(id, params.get(State.Keys.size)))
   }
 
   setState (state) {
     super.setState(state)
-    localStorage.setItem(State.Keys.id, state.id)
-    localStorage.setItem(state.id, JSON.stringify(state))
+    localStorage.setItem(state.seed, JSON.stringify(state))
   }
 
   static defaultId () {
@@ -38,6 +38,7 @@ export class State extends Stateful {
 
   static Keys = Object.freeze({
     id: 'id',
+    seed: 'seed',
     size: 'size'
   })
 }

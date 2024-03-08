@@ -118,26 +118,21 @@ export class Grid extends Stateful {
   static Generator = class {
     grid
     id
+    seed
     size
 
-    #seed
     #rand
 
     constructor (id, size) {
-      size ??= Grid.Sizes['5x5']
-
-      const entropy = [id, size].join(',')
-
       this.id = id
-      this.size = size
-
-      this.#seed = Grid.Generator.cyrb53(entropy)
-      this.#rand = Grid.Generator.splitmix32(this.#seed)
+      this.size = Grid.getSize(size)
+      this.seed = Grid.Generator.getSeed(this.id, this.size)
+      this.#rand = Grid.Generator.splitmix32(this.seed)
 
       const grid = []
-      for (let r = 0; r < size; r++) {
+      for (let r = 0; r < this.size; r++) {
         const row = []
-        for (let c = 0; c < size; c++) {
+        for (let c = 0; c < this.size; c++) {
           const content = Grid.Generator.getLetter(this.#rand())
           row.push({ content })
         }
@@ -149,6 +144,10 @@ export class Grid extends Stateful {
 
     static getLetter (num) {
       return Grid.Generator.lettersByWeight.find(([, weight]) => weight > num)[0]
+    }
+
+    static getSeed (id, size) {
+      return Grid.Generator.cyrb53([id, size].join(','))
     }
 
     static lettersByWeight = Object.entries(lettersByWeight)
@@ -185,6 +184,10 @@ export class Grid extends Stateful {
         return ((t ^ t >>> 15) >>> 0) / 4294967296
       }
     }
+  }
+
+  static getSize (size) {
+    return Grid.Sizes[size] ?? Grid.Sizes['5x5']
   }
 
   static Sizes = Object.freeze({
