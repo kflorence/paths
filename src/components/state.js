@@ -15,14 +15,20 @@ export class State extends Stateful {
     }
 
     // Load existing state from localStorage, otherwise generate a new one
-    const seed = Grid.Generator.getSeed(id, Grid.getSize(params.get(State.Keys.size)))
-    const state = localStorage.getItem(seed)
-    super(state ? JSON.parse(state) : new Grid.Generator(id, params.get(State.Keys.size)))
+    const width = params.get(State.Keys.width)
+    const state = localStorage.getItem(Grid.Generator.getSeed(id, width))
+    super(state ? JSON.parse(state) : new Grid.Generator(id, width))
   }
 
   setState (state) {
     super.setState(state)
     localStorage.setItem(state.seed, JSON.stringify(state))
+  }
+
+  updateState (updater, dispatchEvent = true) {
+    const state = super.updateState(updater, dispatchEvent)
+    localStorage.setItem(state.seed, JSON.stringify(state))
+    return state
   }
 
   static defaultId () {
@@ -39,6 +45,6 @@ export class State extends Stateful {
   static Keys = Object.freeze({
     id: 'id',
     seed: 'seed',
-    size: 'size'
+    width: 'width'
   })
 }

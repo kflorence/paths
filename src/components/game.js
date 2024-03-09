@@ -4,15 +4,24 @@ import { Dictionary } from './dictionary'
 
 export class Game {
   dictionary
-  selected = []
+  words = []
   grid
 
+  #state
+
   constructor (state) {
+    this.#state = state
     this.dictionary = new Dictionary()
-    this.grid = new Grid(this, state.grid)
+
+    const { grid, width } = this.#state.getState()
+    this.grid = new Grid(this, grid, width)
 
     // Listening on document to handle pointerup outside the grid area
-    document.addEventListener('pointerup', () => this.grid.cancel())
+    document.addEventListener('pointerup', () => this.grid.deselect())
+
+    this.grid.setup()
+
+    // TODO: need to update words based on loaded state
   }
 
   getLastSelected () {
@@ -21,11 +30,11 @@ export class Game {
   }
 
   getPath () {
-    return this.selected.flat()
+    return this.words.flat()
   }
 
   getWords () {
-    return this.selected.map(Game.getWord)
+    return this.words.map(Game.getWord)
   }
 
   select (cells) {
@@ -33,36 +42,35 @@ export class Game {
 
     if (this.dictionary.isValid(word)) {
       const lastIndex = cells.length - 1
+      const wordIndex = this.words.length
       cells.forEach((cell, index) => {
-        const classNames = [Game.States.Word]
+        const classNames = [Cell.ClassNames.Word]
         if (index < lastIndex) {
           if (index === 0) {
-            classNames.push(Game.States.WordStart)
-            if (this.selected.length === 0) {
-              classNames.push(Game.States.PathStart)
+            classNames.push(Cell.ClassNames.WordStart)
+            if (this.words.length === 0) {
+              classNames.push(Cell.ClassNames.First)
             }
           }
         } else {
-          classNames.push(Game.States.WordEnd)
+          classNames.push(Cell.ClassNames.WordEnd)
         }
 
         cell.add(classNames)
-        cell.remove(Cell.States.Pending)
+        cell.addIndex(wordIndex)
+        cell.remove(Cell.ClassNames.Selected)
       })
-      this.selected.push(cells)
+      this.words.push(cells)
     } else {
       cells.forEach((cell) => cell.reset())
     }
   }
 
-  static getWord (cells) {
-    return cells.map((cell) => cell.content).join('')
+  update () {
+    this.#state.updateState((state) => { state.grid = this.grid.getState() })
   }
 
-  static States = Object.freeze({
-    PathStart: 'path-start',
-    Word: 'word',
-    WordStart: 'word-start',
-    WordEnd: 'word-end'
-  })
+  static getWord (cells) {
+    return cells.map((cell) => cell.getContent()).join('')
+  }
 }

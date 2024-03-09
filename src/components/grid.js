@@ -1,7 +1,6 @@
 import { Cell } from './cell'
 import { Stateful } from './stateful'
 import { EventListeners } from './eventListeners'
-import { Game } from './game'
 import { lettersByWeight } from './letters'
 
 export class Grid extends Stateful {
@@ -14,21 +13,17 @@ export class Grid extends Stateful {
   #eventListeners = new EventListeners({ context: this, element: this.$element })
   #pointerDownEvent
 
-  constructor (parent, state) {
-    const width = state[0].length
-
-    super(state.flat())
+  constructor (parent, state, width) {
+    super(state)
 
     this.parent = parent
     this.width = width
-
-    this.setup()
   }
 
-  cancel () {
+  deselect () {
     this.#pointerDownEvent = undefined
 
-    if (this.isPending()) {
+    if (this.hasSelected()) {
       this.parent.select(this.selected)
       this.selected = []
     }
@@ -40,20 +35,20 @@ export class Grid extends Stateful {
     return this.selected[this.selected.length - 1]
   }
 
-  isPending () {
+  hasSelected () {
     return this.selected.length > 0
   }
 
   select (cell) {
-    if (!this.#pointerDownEvent || cell.has(Game.States.Word)) {
+    if (!this.#pointerDownEvent || cell.has(Cell.ClassNames.Word)) {
+      // Can't select a cell that is already part of a word
       return
     }
 
     const index = this.selected.findIndex((selected) => selected.equals(cell))
     if (index > -1) {
       // Going back to an already selected cell, remove everything selected after it
-      const removed = this.selected.splice(index + 1)
-      removed.forEach((c) => c.reset())
+      this.selected.splice(index + 1).forEach((cell) => cell.reset())
       return
     }
 
@@ -63,7 +58,7 @@ export class Grid extends Stateful {
       return
     }
 
-    const classNames = [Cell.States.Pending]
+    const classNames = [Cell.ClassNames.Selected]
 
     if (lastSelected) {
       classNames.push(cell.getDirection(lastSelected))
@@ -72,12 +67,13 @@ export class Grid extends Stateful {
     cell.add(classNames)
 
     this.selected.push(cell)
+    this.update()
   }
 
   setup () {
-    this.teardown()
+    this.#teardown()
 
-    this.$element.classList.add('grid', `grid-${this.width}`)
+    this.$element.classList.add(Grid.ClassNames.Grid, `grid-${this.width}`)
 
     this.getState().forEach((state, index) => {
       const row = Math.floor(index / this.width)
@@ -92,18 +88,19 @@ export class Grid extends Stateful {
     this.update()
   }
 
-  teardown () {
+  update () {
+    this.updateState(() => this.cells.map((cell) => cell.getState()))
+    this.parent.update()
+  }
+
+  #teardown () {
     this.#eventListeners.remove()
 
     this.cells.forEach((cell) => cell.teardown())
     this.cells = []
 
     this.$element.replaceChildren()
-    this.$element.classList.value = ''
-  }
-
-  update () {
-    this.updateState(() => this.cells.map((cell) => cell.getState()))
+    this.$element.className = ''
   }
 
   #onPointerDown (event) {
@@ -115,28 +112,30 @@ export class Grid extends Stateful {
     }
   }
 
+  static ClassNames = Object.freeze({ Grid: 'grid' })
+
+  static DefaultWidth = 5
+
   static Generator = class {
     grid
     id
     seed
-    size
+    width
 
     #rand
 
-    constructor (id, size) {
+    constructor (id, width) {
       this.id = id
-      this.size = Grid.getSize(size)
-      this.seed = Grid.Generator.getSeed(this.id, this.size)
+      this.width = Grid.Generator.getWidth(width)
+      console.log(width, this.width)
+      this.seed = Grid.Generator.getSeed(this.id, this.width)
       this.#rand = Grid.Generator.splitmix32(this.seed)
 
       const grid = []
-      for (let r = 0; r < this.size; r++) {
-        const row = []
-        for (let c = 0; c < this.size; c++) {
-          const content = Grid.Generator.getLetter(this.#rand())
-          row.push({ content })
-        }
-        grid.push(row)
+      const size = this.width * this.width
+      for (let i = 0; i < size; i++) {
+        const content = Grid.Generator.getLetter(this.#rand())
+        grid.push({ content })
       }
 
       this.grid = grid
@@ -146,8 +145,12 @@ export class Grid extends Stateful {
       return Grid.Generator.lettersByWeight.find(([, weight]) => weight > num)[0]
     }
 
-    static getSeed (id, size) {
-      return Grid.Generator.cyrb53([id, size].join(','))
+    static getSeed (id, width) {
+      return Grid.Generator.cyrb53([id, Grid.Generator.getWidth(width)].join(','))
+    }
+
+    static getWidth (width) {
+      return Grid.Widths.includes(Number(width)) ? width : Grid.DefaultWidth
     }
 
     static lettersByWeight = Object.entries(lettersByWeight)
@@ -186,13 +189,5 @@ export class Grid extends Stateful {
     }
   }
 
-  static getSize (size) {
-    return Grid.Sizes[size] ?? Grid.Sizes['5x5']
-  }
-
-  static Sizes = Object.freeze({
-    '5x5': 5,
-    '7x7': 7,
-    '9x9': 9
-  })
+  static Widths = Object.freeze([5, 7, 9])
 }

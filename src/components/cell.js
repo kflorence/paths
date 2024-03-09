@@ -7,31 +7,45 @@ let uniqueId = 0
 export class Cell extends Stateful {
   $element = document.createElement('div')
 
-  content
   coordinates
-  id = uniqueId++
+  id
 
   #eventListeners = new EventListeners({ context: this, element: this.$element })
 
   constructor (parent, state, { row, column }) {
-    state.classNames ??= ['cell']
+    state.classNames ??= [Cell.ClassNames.Cell]
+    state.id ??= uniqueId++
 
     super(state)
 
     this.coordinates = new Coordinates(row, column)
-    this.content = state.content
+    this.id = state.id
     this.parent = parent
 
     this.#setup()
   }
 
   add (classNames) {
-    this.$element.classList.add(...Array.isArray(classNames) ? classNames : [classNames])
+    classNames = Array.isArray(classNames) ? classNames : [classNames]
+    classNames.forEach((className) => {
+      if (!Cell.#ClassNames.includes(className)) {
+        throw new Error(`Invalid className for cell: ${className}`)
+      }
+    })
+    this.$element.classList.add(...classNames)
     this.update()
+  }
+
+  addIndex (index) {
+    this.$element.dataset.index = index
   }
 
   equals (other) {
     return this.id === other.id
+  }
+
+  getContent () {
+    return this.getState().content
   }
 
   getDirection (cell) {
@@ -86,16 +100,32 @@ export class Cell extends Stateful {
   }
 
   #setup () {
-    this.$element.classList.add('cell')
-    this.$element.textContent = this.content
+    const state = this.getState()
+    this.$element.classList.add(...state.classNames)
+    this.$element.textContent = state.content
     this.#eventListeners.add([{ handler: this.#onPointerEnter, type: 'pointerenter' }])
   }
 
+  static ClassNames = Object.freeze({
+    Cell: 'cell',
+    DirectionDown: 'cell-direction-down',
+    DirectionLeft: 'cell-direction-left',
+    DirectionRight: 'cell-direction-right',
+    DirectionUp: 'cell-direction-up',
+    First: 'cell-first',
+    Selected: 'cell-selected',
+    Word: 'cell-word',
+    WordEnd: 'cell-word-end',
+    WordStart: 'cell-word-start'
+  })
+
+  static #ClassNames = Object.values(Cell.ClassNames)
+
   static Directions = Object.freeze({
-    Down: 'direction-down',
-    Left: 'direction-left',
-    Right: 'direction-right',
-    Up: 'direction-up'
+    Down: Cell.ClassNames.DirectionDown,
+    Left: Cell.ClassNames.DirectionLeft,
+    Right: Cell.ClassNames.DirectionRight,
+    Up: Cell.ClassNames.DirectionUp
   })
 
   static Events = Object.freeze({ Enter: 'cell-enter' })
@@ -118,6 +148,4 @@ export class Cell extends Stateful {
       offset: new Coordinates(-1, 0)
     }
   ]
-
-  static States = Object.freeze({ Pending: 'pending' })
 }

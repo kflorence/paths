@@ -52,6 +52,21 @@ body {
   user-select: none;
 }
 
+.grid-5 {
+  grid-template-columns: repeat(5, 1fr);
+  max-width: 400px;
+}
+
+.grid-7 {
+  grid-template-columns: repeat(7, 1fr);
+  max-width: 800px;
+}
+
+.grid-9 {
+  grid-template-columns: repeat(9, 1fr);
+  max-width: 1200px;
+}
+
 .grid .cell {
   align-items: center;
   aspect-ratio: 1;
@@ -73,21 +88,8 @@ body {
   z-index: 1;
 }
 
-.grid .cell.pending {
-  background-color: #FFED65;
-}
-
-.grid .cell.word {
-  background-color: #59FFA0;
-}
-
-.grid .cell.path-start {
-  text-decoration: 4px rgba(0, 0, 0, 0.5) underline;
-  text-underline-offset: 0.5rem;
-}
-
-.grid .cell.direction-down::after,
-.grid .cell.direction-up::after {
+.grid .cell-direction-down::after,
+.grid .cell-direction-up::after {
   height: 8px;
   left: 0;
   margin: 0 auto;
@@ -95,42 +97,40 @@ body {
   width: 25%;
 }
 
-.grid .cell.direction-down::after {
+.grid .cell-direction-down::after {
   bottom: -8px;
 }
 
-.grid .cell.direction-up::after {
+.grid .cell-direction-up::after {
   top: -8px;
 }
 
-.grid .cell.direction-left::after,
-.grid .cell.direction-right::after {
+.grid .cell-direction-left::after,
+.grid .cell-direction-right::after {
   width: 8px;
   margin: auto 0;
   height: 25%;
 }
 
-.grid .cell.direction-left::after {
+.grid .cell-direction-left::after {
   left: -8px;
 }
 
-.grid .cell.direction-right::after {
+.grid .cell-direction-right::after {
   right: -8px;
 }
 
-.grid-5 {
-  grid-template-columns: repeat(5, 1fr);
-  max-width: 400px;
+.grid .cell-first {
+  text-decoration: 4px rgba(0, 0, 0, 0.5) underline;
+  text-underline-offset: 0.5rem;
 }
 
-.grid-7 {
-  grid-template-columns: repeat(7, 1fr);
-  max-width: 800px;
+.grid .cell-word {
+  background-color: #59FFA0;
 }
 
-.grid-9 {
-  grid-template-columns: repeat(9, 1fr);
-  max-width: 1200px;
+.grid .cell-selected {
+  background-color: #FFED65;
 }
 
 /* https://developers.google.com/fonts/docs/material_icons */
