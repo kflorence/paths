@@ -40,7 +40,7 @@ export class Grid extends Stateful {
   }
 
   select (cell) {
-    if (!this.#pointerDownEvent || cell.has(Cell.ClassNames.Word)) {
+    if (!this.#pointerDownEvent || cell.hasClassName(Cell.ClassNames.Word)) {
       // Can't select a cell that is already part of a word
       return
     }
@@ -58,14 +58,7 @@ export class Grid extends Stateful {
       return
     }
 
-    const classNames = [Cell.ClassNames.Selected]
-
-    if (lastSelected) {
-      classNames.push(cell.getDirection(lastSelected))
-    }
-
-    cell.add(classNames)
-
+    cell.select(lastSelected)
     this.selected.push(cell)
     this.update()
   }
@@ -73,7 +66,8 @@ export class Grid extends Stateful {
   setup () {
     this.#teardown()
 
-    this.$element.classList.add(Grid.ClassNames.Grid, `grid-${this.width}`)
+    document.body.className = `grid-${this.width}`
+    this.$element.classList.add(Grid.ClassNames.Grid)
 
     this.getState().forEach((state, index) => {
       const row = Math.floor(index / this.width)
@@ -106,7 +100,8 @@ export class Grid extends Stateful {
   #onPointerDown (event) {
     this.#pointerDownEvent = event
 
-    const cell = this.cells.find((cell) => cell.$element === event.target)
+    const closest = event.target.closest('.cell')
+    const cell = this.cells.find((cell) => cell.$element === closest)
     if (cell) {
       this.select(cell)
     }

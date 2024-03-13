@@ -5,6 +5,7 @@ import { Coordinates } from './coordinates'
 let uniqueId = 0
 
 export class Cell extends Stateful {
+  $content = document.createElement('span')
   $element = document.createElement('div')
 
   coordinates
@@ -13,8 +14,8 @@ export class Cell extends Stateful {
   #eventListeners = new EventListeners({ context: this, element: this.$element })
 
   constructor (parent, state, { row, column }) {
-    state.classNames ??= [Cell.ClassNames.Cell]
     state.id ??= uniqueId++
+    state.index ??= []
 
     super(state)
 
@@ -25,19 +26,13 @@ export class Cell extends Stateful {
     this.#setup()
   }
 
-  add (classNames) {
-    classNames = Array.isArray(classNames) ? classNames : [classNames]
+  addClassNames (...classNames) {
     classNames.forEach((className) => {
       if (!Cell.#ClassNames.includes(className)) {
         throw new Error(`Invalid className for cell: ${className}`)
       }
     })
     this.$element.classList.add(...classNames)
-    this.update()
-  }
-
-  addIndex (index) {
-    this.$element.dataset.index = index
   }
 
   equals (other) {
@@ -52,6 +47,10 @@ export class Cell extends Stateful {
     return this.getNeighbor(cell).direction
   }
 
+  getIndex () {
+    return this.getState().index
+  }
+
   getNeighbor (cell) {
     return this.getNeighbors().find((neighbor) => cell.coordinates.equals(neighbor.coordinates))
   }
@@ -64,20 +63,36 @@ export class Cell extends Stateful {
     })
   }
 
-  has (className) {
+  hasClassName (className) {
     return this.$element.classList.contains(className)
   }
 
-  remove (classNames) {
-    this.$element.classList.remove(...Array.isArray(classNames) ? classNames : [classNames])
-    this.update()
+  removeClassNames (...classNames) {
+    this.$element.classList.remove(...classNames)
   }
 
   reset () {
-    const original = this.getOriginalState()
-    this.$element.className = original.classNames.join(' ')
-    this.$element.textContent = original.content
-    this.updateState(() => original)
+    const state = this.getOriginalState()
+    this.#reset(state)
+    this.updateState(() => state)
+  }
+
+  select (last) {
+    const classNames = [Cell.ClassNames.Selected]
+    if (last) {
+      classNames.push(this.getDirection(last))
+    }
+    this.addClassNames(...classNames)
+  }
+
+  setContent (content) {
+    this.$content.textContent = content
+    this.updateState((state) => { state.content = content })
+  }
+
+  setIndex (...index) {
+    this.$element.dataset.index = index.join(',')
+    this.updateState((state) => { state.index = index })
   }
 
   teardown () {
@@ -89,20 +104,21 @@ export class Cell extends Stateful {
     return `[Cell:${this.coordinates.toString()}]`
   }
 
-  update (content) {
-    this.$element.textContent = (content ??= this.$element.textContent)
-    const classNames = Array.from(this.$element.classList.values())
-    this.updateState(() => ({ content, classNames }))
-  }
-
   #onPointerEnter () {
     this.parent.select(this)
   }
 
+  #reset (state) {
+    this.$content.textContent = state.content
+    this.$element.replaceChildren(this.$content)
+    this.$element.className = Cell.ClassNames.Cell
+    if (state.index.length > 0) {
+      this.$element.dataset.index = state.index.join(',')
+    }
+  }
+
   #setup () {
-    const state = this.getState()
-    this.$element.classList.add(...state.classNames)
-    this.$element.textContent = state.content
+    this.#reset(this.getState())
     this.#eventListeners.add([{ handler: this.#onPointerEnter, type: 'pointerenter' }])
   }
 
@@ -113,6 +129,7 @@ export class Cell extends Stateful {
     DirectionRight: 'cell-direction-right',
     DirectionUp: 'cell-direction-up',
     First: 'cell-first',
+    Last: 'cell-last',
     Selected: 'cell-selected',
     Word: 'cell-word',
     WordEnd: 'cell-word-end',

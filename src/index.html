@@ -17,13 +17,29 @@
 <body>
   <div id="container">
     <header>
-      <div class="flex-left"></div>
-      <div class="flex-right"></div>
+      <div class="flex-left">
+        <a id="title" title="Title"></a>
+      </div>
+      <div class="flex-right">
+        <ul class="menu">
+          <li><span class="material-symbols-outlined" title="Help">help</span></li>
+        </ul>
+      </div>
     </header>
     <main id="grid"></main>
-    <footer>
-      <div class="flex-left"></div>
-      <div class="flex-right"></div>
+    <footer class="expanded">
+      <div class="container">
+        <div class="flex-left">
+          <span id="score" title="Score: click for more information">0</span>
+        </div>
+        <div class="flex-right">
+          <ul class="menu">
+            <li><span class="material-symbols-outlined" title="Share">share</span></li>
+            <li><a class="material-symbols-outlined" id="new" title="Play Again">cycle</a></li>
+          </ul>
+        </div>
+      </div>
+      <ul id="words"></ul>
     </footer>
   </div>
 </body>
