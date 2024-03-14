@@ -1,29 +1,24 @@
-import { Stateful } from './stateful'
 import { EventListeners } from './eventListeners'
 import { Coordinates } from './coordinates'
 
-let uniqueId = 0
-
-export class Cell extends Stateful {
+export class Cell {
   $content = document.createElement('span')
   $element = document.createElement('div')
 
-  coordinates
-  id
-
+  #content
+  #coordinates
   #eventListeners = new EventListeners({ context: this, element: this.$element })
+  #parent
 
-  constructor (parent, state, { row, column }) {
-    state.id ??= uniqueId++
-    state.index ??= []
+  constructor (parent, configuration) {
+    this.#content = configuration.content
+    this.#coordinates = Coordinates.fromString(configuration.id)
+    this.#parent = parent
+    this.#eventListeners.add([{ handler: this.#onPointerEnter, type: 'pointerenter' }])
 
-    super(state)
-
-    this.coordinates = new Coordinates(row, column)
-    this.id = state.id
-    this.parent = parent
-
-    this.#setup()
+    this.addClassNames(Cell.ClassNames.Cell)
+    this.setContent(configuration.content)
+    this.setSelected(configuration.selected)
   }
 
   addClassNames (...classNames) {
@@ -35,91 +30,94 @@ export class Cell extends Stateful {
     this.$element.classList.add(...classNames)
   }
 
+  deselect () {
+    this.setSelected(undefined)
+    this.removeClassNamesExcept(Cell.ClassNames.Cell, Cell.ClassNames.Swapped)
+  }
+
   equals (other) {
-    return this.id === other.id
+    return this.#coordinates.equals(other.getCoordinates())
   }
 
   getContent () {
-    return this.getState().content
+    return this.$content.textContent
   }
 
-  getDirection (cell) {
-    return this.getNeighbor(cell).direction
+  getCoordinates () {
+    return this.#coordinates
   }
 
-  getIndex () {
-    return this.getState().index
+  getDirection (other) {
+    return this.getNeighbors().find((neighbor) => other.getCoordinates().equals(neighbor.coordinates))?.direction
   }
 
-  getNeighbor (cell) {
-    return this.getNeighbors().find((neighbor) => cell.coordinates.equals(neighbor.coordinates))
+  getSelected () {
+    return this.$element.dataset.selected
   }
 
   getNeighbors () {
     return Cell.Neighbors.map((neighbor) => {
       const { direction, offset } = neighbor
-      const coordinates = this.coordinates.add(offset)
+      const coordinates = this.#coordinates.add(offset)
       return { coordinates, direction }
     })
+  }
+
+  getState () {
+    return new Cell.State(this.#coordinates.toString(), this.getContent(), this.getSelected())
   }
 
   hasClassName (className) {
     return this.$element.classList.contains(className)
   }
 
+  isNeighbor (cell) {
+    return this.getDirection(cell) !== undefined
+  }
+
   removeClassNames (...classNames) {
-    this.$element.classList.remove(...classNames)
+    classNames.length
+      ? this.$element.classList.remove(...classNames)
+      : this.$element.className = Cell.ClassNames.Cell
+  }
+
+  removeClassNamesExcept (...classNames) {
+    this.removeClassNames(...Cell.#ClassNames.filter((className) => !classNames.includes(className)))
   }
 
   reset () {
-    const state = this.getOriginalState()
-    this.#reset(state)
-    this.updateState(() => state)
+    this.setContent(this.#content)
+    this.setSelected(undefined)
+    this.removeClassNames()
   }
 
-  select (last) {
+  select (link) {
     const classNames = [Cell.ClassNames.Selected]
-    if (last) {
-      classNames.push(this.getDirection(last))
+    if (link) {
+      classNames.push(this.getDirection(link))
     }
     this.addClassNames(...classNames)
   }
 
   setContent (content) {
     this.$content.textContent = content
-    this.updateState((state) => { state.content = content })
-  }
-
-  setIndex (...index) {
-    this.$element.dataset.index = index.join(',')
-    this.updateState((state) => { state.index = index })
-  }
-
-  teardown () {
-    this.#eventListeners.remove()
-    this.$element.remove()
-  }
-
-  toString () {
-    return `[Cell:${this.coordinates.toString()}]`
-  }
-
-  #onPointerEnter () {
-    this.parent.select(this)
-  }
-
-  #reset (state) {
-    this.$content.textContent = state.content
     this.$element.replaceChildren(this.$content)
-    this.$element.className = Cell.ClassNames.Cell
-    if (state.index.length > 0) {
-      this.$element.dataset.index = state.index.join(',')
+  }
+
+  setSelected (selected) {
+    if (selected === undefined) {
+      delete this.$element.dataset.selected
+    } else {
+      this.$element.dataset.selected = selected
     }
   }
 
-  #setup () {
-    this.#reset(this.getState())
-    this.#eventListeners.add([{ handler: this.#onPointerEnter, type: 'pointerenter' }])
+  toString () {
+    return `[Cell:${this.#coordinates.toString()}]`
+  }
+
+  #onPointerEnter () {
+    this.#parent.select(this)
   }
 
   static ClassNames = Object.freeze({
@@ -131,6 +129,7 @@ export class Cell extends Stateful {
     First: 'cell-first',
     Last: 'cell-last',
     Selected: 'cell-selected',
+    Swapped: 'cell-swapped',
     Word: 'cell-word',
     WordEnd: 'cell-word-end',
     WordStart: 'cell-word-start'
@@ -144,8 +143,6 @@ export class Cell extends Stateful {
     Right: Cell.ClassNames.DirectionRight,
     Up: Cell.ClassNames.DirectionUp
   })
-
-  static Events = Object.freeze({ Enter: 'cell-enter' })
 
   static Neighbors = [
     {
@@ -165,4 +162,16 @@ export class Cell extends Stateful {
       offset: new Coordinates(-1, 0)
     }
   ]
+
+  static State = class {
+    id
+    content
+    selected
+
+    constructor (id, content, selected) {
+      this.id = id
+      this.content = content
+      this.selected = selected
+    }
+  }
 }

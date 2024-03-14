@@ -20,29 +20,6 @@ body {
   width: 100%;
 }
 
-.grid-5 #container {
-  max-width: 400px;
-}
-
-.grid-7 #container {
-  max-width: 800px;
-}
-
-.grid-9 #container {
-  max-width: 1200px;
-}
-
-#title {
-  color: white;
-  padding: 0.5em 1em;
-  text-decoration: none;
-}
-
-#score {
-  cursor: pointer;
-  padding: 0.5em 1em;
-}
-
 header, footer {
   align-items: stretch;
   border-radius: 8px;
@@ -70,8 +47,16 @@ footer {
   margin-top: 4px;
 }
 
-footer a {
+#score {
+  color: #FFED65;
+  cursor: pointer;
+  padding: 0.5em 1em;
+  user-select: none;
+}
+
+#title {
   color: white;
+  padding: 0.5em 1em;
   text-decoration: none;
 }
 
@@ -124,12 +109,24 @@ footer a {
   user-select: none;
 }
 
+.grid-5 #container {
+  max-width: 400px;
+}
+
 .grid-5 .grid {
   grid-template-columns: repeat(5, 1fr);
 }
 
+.grid-7 #container {
+  max-width: 800px;
+}
+
 .grid-7 .grid {
   grid-template-columns: repeat(7, 1fr);
+}
+
+.grid-9 #container {
+  max-width: 1200px;
 }
 
 .grid-9 .grid {
@@ -251,6 +248,11 @@ footer a {
   cursor: pointer;
   display: flex;
   padding: 0.5em 1em;
+}
+
+.menu a {
+  color: white;
+  text-decoration: none;
 }
 
 @media (min-width: 426px) {

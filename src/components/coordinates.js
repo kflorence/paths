@@ -1,7 +1,10 @@
 export class Coordinates {
+  id
+
   constructor (row, column) {
-    this.row = row
-    this.column = column
+    this.id = [row, column].join(',')
+    this.row = Number(row)
+    this.column = Number(column)
   }
 
   add (other) {
@@ -9,10 +12,14 @@ export class Coordinates {
   }
 
   equals (other) {
-    return this.row === other.row && this.column === other.column
+    return this.id === other.id
   }
 
   toString () {
-    return [this.row, this.column].join(',')
+    return this.id
+  }
+
+  static fromString (coordinates) {
+    return new Coordinates(...coordinates.split(','))
   }
 }

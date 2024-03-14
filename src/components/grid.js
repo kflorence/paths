@@ -1,42 +1,53 @@
 import { Cell } from './cell'
-import { Stateful } from './stateful'
 import { EventListeners } from './eventListeners'
 import { lettersByWeight } from './letters'
+import { Coordinates } from './coordinates'
 
-export class Grid extends Stateful {
+export class Grid {
   $element = document.getElementById('grid')
-
-  cells = []
-  selected = []
-  width
+  cells
 
   #eventListeners = new EventListeners({ context: this, element: this.$element })
+  #parent
   #pointerDownEvent
+  #selected = []
 
-  constructor (parent, state, width) {
-    super(state)
+  constructor (parent, configuration) {
+    this.#parent = parent
 
-    this.parent = parent
-    this.width = width
+    this.cells = configuration.grid.map((configuration) => new Cell(this, configuration))
+
+    document.body.className = `grid-${configuration.width}`
+
+    this.$element.classList.add(Grid.ClassNames.Grid)
+    this.$element.replaceChildren(...this.cells.map((cell) => cell.$element))
+
+    this.#eventListeners.add([{ handler: this.#onPointerDown, type: 'pointerdown' }])
   }
 
   deselect () {
     this.#pointerDownEvent = undefined
 
     if (this.hasSelected()) {
-      this.parent.select(this.selected)
-      this.selected = []
+      this.#parent.select(this.#selected)
+      this.#selected = []
     }
-
-    this.update()
   }
 
   getLastSelected () {
-    return this.selected[this.selected.length - 1]
+    return this.#selected[this.#selected.length - 1]
+  }
+
+  getState () {
+    return this.cells.map((cell) => cell.getState())
   }
 
   hasSelected () {
-    return this.selected.length > 0
+    return this.#selected.length > 0
+  }
+
+  reset () {
+    this.cells.forEach((cell) => cell.reset())
   }
 
   select (cell) {
@@ -45,56 +56,22 @@ export class Grid extends Stateful {
       return
     }
 
-    const index = this.selected.findIndex((selected) => selected.equals(cell))
+    const index = this.#selected.findIndex((selected) => selected.equals(cell))
     if (index > -1) {
       // Going back to an already selected cell, remove everything selected after it
-      this.selected.splice(index + 1).forEach((cell) => cell.reset())
+      this.#selected.splice(index + 1).forEach((cell) => cell.reset())
       return
     }
 
-    const lastSelected = this.getLastSelected()
-    const last = lastSelected ?? this.parent.getLastSelected()
-    if (last && !last.getNeighbor(cell)) {
+    const previous = this.getLastSelected()
+    const last = previous ?? this.#parent.getLastSelected()
+    if (last && !last.isNeighbor(cell)) {
       return
     }
 
-    cell.select(lastSelected)
-    this.selected.push(cell)
-    this.update()
-  }
+    cell.select(previous)
 
-  setup () {
-    this.#teardown()
-
-    document.body.className = `grid-${this.width}`
-    this.$element.classList.add(Grid.ClassNames.Grid)
-
-    this.getState().forEach((state, index) => {
-      const row = Math.floor(index / this.width)
-      const column = index % this.width
-      const cell = new Cell(this, state, { row, column })
-      this.$element.append(cell.$element)
-      this.cells.push(cell)
-    })
-
-    this.#eventListeners.add([{ handler: this.#onPointerDown, type: 'pointerdown' }])
-
-    this.update()
-  }
-
-  update () {
-    this.updateState(() => this.cells.map((cell) => cell.getState()))
-    this.parent.update()
-  }
-
-  #teardown () {
-    this.#eventListeners.remove()
-
-    this.cells.forEach((cell) => cell.teardown())
-    this.cells = []
-
-    this.$element.replaceChildren()
-    this.$element.className = ''
+    this.#selected.push(cell)
   }
 
   #onPointerDown (event) {
@@ -112,7 +89,7 @@ export class Grid extends Stateful {
   static DefaultWidth = 5
 
   static Generator = class {
-    grid
+    grid = []
     id
     seed
     width
@@ -122,18 +99,17 @@ export class Grid extends Stateful {
     constructor (id, width) {
       this.id = id
       this.width = Grid.Generator.getWidth(width)
-      console.log(width, this.width)
       this.seed = Grid.Generator.getSeed(this.id, this.width)
       this.#rand = Grid.Generator.splitmix32(this.seed)
 
-      const grid = []
       const size = this.width * this.width
-      for (let i = 0; i < size; i++) {
+      for (let index = 0; index < size; index++) {
         const content = Grid.Generator.getLetter(this.#rand())
-        grid.push({ content })
-      }
+        const row = Math.floor(index / this.width)
+        const column = index % this.width
 
-      this.grid = grid
+        this.grid.push(new Cell.State(new Coordinates(row, column).toString(), content))
+      }
     }
 
     static getLetter (num) {

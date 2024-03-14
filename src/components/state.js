@@ -1,50 +1,54 @@
-import { Grid } from './grid'
-import { Stateful } from './stateful'
+import { Game } from './game'
 
 const localStorage = window.localStorage
 const location = window.location
 const params = new URLSearchParams(location.search)
 
-export class State extends Stateful {
-  constructor () {
-    let id = params.get(State.Keys.id) ?? State.defaultId()
-    const date = Date.parse(id)
-    if (!isNaN(date) && date > State.today) {
-      console.debug(`Defaulting to current day puzzle given ID in the future: ${id}`)
-      id = State.defaultId()
+export class State {
+  key
+
+  #current
+  #original
+
+  constructor (key, state) {
+    this.key = key
+    this.#current = structuredClone(state)
+    this.#original = structuredClone(state)
+
+    this.load()
+  }
+
+  get () {
+    return structuredClone(this.#current)
+  }
+
+  load () {
+    const cache = params.get(Game.Params.state) ?? localStorage.getItem(this.key)
+    if (cache) {
+      console.debug('Loading state from cache. seed:', this.key, cache)
+      try {
+        const state = JSON.parse(cache)
+        if (state.seed === this.key) {
+          this.set(state)
+        } else {
+          console.warn('Ignoring cached state due to seed mismatch. ours:', this.key, 'theirs:', state.seed)
+        }
+      } catch (e) {
+        console.error('Could not set state from localStorage', this.key, e.message)
+      }
     }
-
-    // Load existing state from localStorage, otherwise generate a new one
-    const width = params.get(State.Keys.width)
-    const state = localStorage.getItem(Grid.Generator.getSeed(id, width))
-    super(state ? JSON.parse(state) : new Grid.Generator(id, width))
   }
 
-  setState (state) {
-    super.setState(state)
-    localStorage.setItem(state.seed, JSON.stringify(state))
+  reset () {
+    this.set(this.#original)
   }
 
-  updateState (updater, dispatchEvent = true) {
-    const state = super.updateState(updater, dispatchEvent)
-    localStorage.setItem(state.seed, JSON.stringify(state))
-    return state
+  set (state) {
+    this.#current = structuredClone(state)
+    if (!params.has(Game.Params.state)) {
+      // Don't overwrite local state with cached state loaded from URL
+      localStorage.setItem(this.key, JSON.stringify(this.#current))
+    }
+    return this.get()
   }
-
-  static defaultId () {
-    // The ID for the daily puzzle
-    const date = new Date()
-    const year = date.getFullYear()
-    const month = (date.getMonth() + 1).toString().padStart(2, '0')
-    const day = date.getDate().toString().padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
-
-  static today = Date.parse(State.defaultId())
-
-  static Keys = Object.freeze({
-    id: 'id',
-    seed: 'seed',
-    width: 'width'
-  })
 }
