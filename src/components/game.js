@@ -5,9 +5,9 @@ import { EventListeners } from './eventListeners'
 import { State } from './state'
 
 const $footer = document.getElementById('footer')
+const $id = document.getElementById('id')
 const $reset = document.getElementById('reset')
 const $score = document.getElementById('score')
-const $title = document.getElementById('title')
 const $words = document.getElementById('words')
 
 const location = window.location
@@ -37,8 +37,8 @@ export class Game {
     this.#state = new State(configuration.seed, configuration)
     this.#grid = new Grid(this, this.#state.get())
 
-    $title.href = `?id=${id}`
-    $title.textContent = `#${id}`
+    $id.href = `?id=${id}`
+    $id.textContent = id
 
     this.#eventListeners.add([
       // Listening on document to handle pointerup outside the grid area
