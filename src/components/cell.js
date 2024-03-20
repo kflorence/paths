@@ -1,177 +1,122 @@
-import { EventListeners } from './eventListeners'
-import { Coordinates } from './coordinates'
+import { Directions } from './coordinates'
+import { getClassName } from './util'
+import { Flag, Flags } from './flag'
 
 export class Cell {
-  $content = document.createElement('span')
-  $element = document.createElement('div')
+  #$content = document.createElement('span')
+  #$element = document.createElement('div')
 
-  #content
   #coordinates
-  #eventListeners = new EventListeners({ context: this, element: this.$element })
-  #parent
+  #state
 
-  constructor (parent, configuration) {
-    this.#content = configuration.content
-    this.#coordinates = Coordinates.fromString(configuration.id)
-    this.#parent = parent
-    this.#eventListeners.add([{ handler: this.#onPointerEnter, type: 'pointerenter' }])
-
-    this.addClassNames(Cell.ClassNames.Cell)
-    this.setContent(configuration.content)
-    this.setSelected(configuration.selected)
-  }
-
-  addClassNames (...classNames) {
-    classNames.forEach((className) => {
-      if (!Cell.#ClassNames.includes(className)) {
-        throw new Error(`Invalid className for cell: ${className}`)
-      }
-    })
-    this.$element.classList.add(...classNames)
-  }
-
-  deselect () {
-    this.setSelected(undefined)
-    this.removeClassNamesExcept(Cell.ClassNames.Cell, Cell.ClassNames.Swapped)
+  constructor (coordinates, state) {
+    this.#coordinates = coordinates
+    this.setState(state)
   }
 
   equals (other) {
-    return this.#coordinates.equals(other.getCoordinates())
+    return this.getCoordinates().equals(other.getCoordinates())
   }
 
   getContent () {
-    return this.$content.textContent
+    return this.#state.content
   }
 
   getCoordinates () {
     return this.#coordinates
   }
 
-  getDirection (other) {
-    return this.getNeighbors().find((neighbor) => other.getCoordinates().equals(neighbor.coordinates))?.direction
+  getElement () {
+    return this.#$element
   }
 
-  getSelected () {
-    return this.$element.dataset.selected
+  getFlags () {
+    return this.#state.flags
   }
 
-  getNeighbors () {
-    return Cell.Neighbors.map((neighbor) => {
-      const { direction, offset } = neighbor
-      const coordinates = this.#coordinates.add(offset)
-      return { coordinates, direction }
-    })
+  getIndex () {
+    return this.#state.index
   }
 
   getState () {
-    return new Cell.State(this.#coordinates.toString(), this.getContent(), this.getSelected())
+    return structuredClone(this.#state)
   }
 
-  hasClassName (className) {
-    return this.$element.classList.contains(className)
-  }
-
-  isNeighbor (cell) {
-    return this.getDirection(cell) !== undefined
-  }
-
-  removeClassNames (...classNames) {
-    classNames.length
-      ? this.$element.classList.remove(...classNames)
-      : this.$element.className = Cell.ClassNames.Cell
-  }
-
-  removeClassNamesExcept (...classNames) {
-    this.removeClassNames(...Cell.#ClassNames.filter((className) => !classNames.includes(className)))
-  }
-
-  reset () {
-    this.setContent(this.#content)
-    this.setSelected(undefined)
-    this.removeClassNames()
-  }
-
-  select (link) {
-    const classNames = [Cell.ClassNames.Selected]
-    if (link) {
-      classNames.push(this.getDirection(link))
+  setState (state) {
+    if (!(state instanceof Cell.State)) {
+      throw new Error('State must be instance of Cell.State')
     }
-    this.addClassNames(...classNames)
-  }
 
-  setContent (content) {
-    this.$content.textContent = content
-    this.$element.replaceChildren(this.$content)
-  }
-
-  setSelected (selected) {
-    if (selected === undefined) {
-      delete this.$element.dataset.selected
-    } else {
-      this.$element.dataset.selected = selected
-    }
+    this.#state = state
+    this.update()
   }
 
   toString () {
-    return `[Cell:${this.#coordinates.toString()}]`
+    return `[${Cell.Name}:${this.getCoordinates.toString()}]`
   }
 
-  #onPointerEnter () {
-    this.#parent.select(this)
+  update () {
+    this.#$element.className = Cell.Name
+
+    const flags = Object.values(Cell.Flags).filter((flag) => this.#state.flags.has(flag.value))
+    flags.forEach((flag) => this.#$element.classList.add(getClassName(Cell.Name, flag.name)))
+
+    this.#$content.textContent = this.#state.content
+    this.#$element.replaceChildren(this.#$content)
   }
 
-  static ClassNames = Object.freeze({
-    Cell: 'cell',
-    DirectionDown: 'cell-direction-down',
-    DirectionLeft: 'cell-direction-left',
-    DirectionRight: 'cell-direction-right',
-    DirectionUp: 'cell-direction-up',
-    First: 'cell-first',
-    Last: 'cell-last',
-    Selected: 'cell-selected',
-    Swapped: 'cell-swapped',
-    Word: 'cell-word',
-    WordEnd: 'cell-word-end',
-    WordStart: 'cell-word-start'
-  })
-
-  static #ClassNames = Object.values(Cell.ClassNames)
-
-  static Directions = Object.freeze({
-    Down: Cell.ClassNames.DirectionDown,
-    Left: Cell.ClassNames.DirectionLeft,
-    Right: Cell.ClassNames.DirectionRight,
-    Up: Cell.ClassNames.DirectionUp
-  })
-
-  static Neighbors = [
-    {
-      direction: Cell.Directions.Down,
-      offset: new Coordinates(1, 0)
-    },
-    {
-      direction: Cell.Directions.Left,
-      offset: new Coordinates(0, -1)
-    },
-    {
-      direction: Cell.Directions.Right,
-      offset: new Coordinates(0, 1)
-    },
-    {
-      direction: Cell.Directions.Up,
-      offset: new Coordinates(-1, 0)
+  static directionToFlag (direction) {
+    switch (direction) {
+      case Directions.Down: {
+        return Cell.Flags.PathDown
+      }
+      case Directions.Left: {
+        return Cell.Flags.PathLeft
+      }
+      case Directions.Right: {
+        return Cell.Flags.PathRight
+      }
+      case Directions.Up: {
+        return Cell.Flags.PathUp
+      }
     }
-  ]
+  }
+
+  static Flags = Object.freeze({
+    First: new Flag('first', 0),
+    Last: new Flag('last', 1),
+    Path: new Flag('path', 2),
+    PathDown: new Flag('path-down', 3),
+    PathLeft: new Flag('path-left', 4),
+    PathRight: new Flag('path-right', 5),
+    PathUp: new Flag('path-up', 6),
+    Selected: new Flag('selected', 7),
+    Swapped: new Flag('swapped', 8),
+    Validated: new Flag('validated', 9),
+    Word: new Flag('word', 10),
+    WordEnd: new Flag('word-end', 11),
+    WordStart: new Flag('word-start', 12)
+  })
+
+  static Name = 'cell'
 
   static State = class {
-    id
+    index
     content
-    selected
+    flags
 
-    constructor (id, content, selected) {
-      this.id = id
+    constructor (index, content, flags) {
+      this.index = index
       this.content = content
-      this.selected = selected
+      this.flags = flags ?? new Flags()
+    }
+
+    copy (settings) {
+      return new Cell.State(
+        settings.index ?? this.index,
+        settings.content ?? this.content,
+        settings.flags ?? this.flags
+      )
     }
   }
 }

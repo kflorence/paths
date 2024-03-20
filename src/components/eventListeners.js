@@ -29,7 +29,10 @@ export class EventListeners {
         event.type = [event.type]
       }
       if (event.context) {
-        event.handler = event.handler.bind(event.context)
+        if (!Array.isArray(event.context)) {
+          event.context = [event.context]
+        }
+        event.handler = event.handler.bind(...event.context)
       }
       event.type.forEach((type) => event.element.addEventListener(type, event.handler, event.options))
       return event

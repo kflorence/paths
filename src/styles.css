@@ -42,7 +42,7 @@ header .flex-left {
 footer {
   background-color: #333;
   border-radius: 8px;
-  flex-direction: column;
+  flex-link: column;
   margin-top: 4px;
 }
 
@@ -157,7 +157,7 @@ footer {
   min-width: 48px;
 }
 
-.grid .cell::after {
+.grid .cell::before {
   background-color: inherit;
   content: '';
   opacity: 1;
@@ -165,12 +165,13 @@ footer {
   z-index: 1;
 }
 
-.grid .cell-word-end::after {
-  opacity: 0.5;
+.grid .cell-first {
+  text-decoration: 4px rgba(0, 0, 0, 0.25) underline;
+  text-underline-offset: clamp(4px, 1.5vw, 8px);
 }
 
-.grid .cell-direction-down::after,
-.grid .cell-direction-up::after {
+.grid .cell-link-down::before,
+.grid .cell-link-up::before {
   height: 12px;
   left: 0;
   margin: 0 auto;
@@ -178,51 +179,64 @@ footer {
   width: 100%;
 }
 
-.grid .cell-direction-down::after {
+.grid .cell-link-down::before {
   bottom: -10px;
 }
 
-.grid .cell-direction-up::after {
+.grid .cell-link-up::before {
   top: -10px;
 }
 
-.grid .cell-direction-down.cell-word-end::after,
-.grid .cell-direction-up.cell-word-end::after {
+.grid .cell-link-down.cell-word-end::before,
+.grid .cell-link-up.cell-word-end::before {
   width: calc(100% - 16px);
 }
 
-.grid .cell-direction-left::after,
-.grid .cell-direction-right::after {
+.grid .cell-link-left::before,
+.grid .cell-link-right::before {
   width: 12px;
   margin: auto 0;
   height: 100%;
 }
 
-.grid .cell-direction-left::after {
+.grid .cell-link-left::before {
   left: -10px;
 }
 
-.grid .cell-direction-right::after {
+.grid .cell-link-right::before {
   right: -10px;
 }
 
-.grid .cell-direction-left.cell-word-end::after,
-.grid .cell-direction-right.cell-word-end::after {
+.grid .cell-link-left.cell-word-end::before,
+.grid .cell-link-right.cell-word-end::before {
   height: calc(100% - 16px);
 }
 
-.grid .cell-selected {
-  background-color: #FFED65;
+.grid .cell-path {
+  background-color: #FDFFF7;
   color: black;
+}
+
+.grid .cell-selected,
+.grid .cell-swapped {
+  background-color: #B4ADEA;
+  color: black;
+}
+
+.grid .cell-swapped.cell-path {
+  background-color: color-mix(in oklab, #B4ADEA, #FDFFF7)
+}
+
+.grid .cell-swapped.cell-word {
+  background-color: color-mix(in oklab, #B4ADEA, #59FFA0)
 }
 
 .grid .cell-word {
   background-color: #59FFA0;
 }
 
-.grid .cell-first {
-  text-decoration: 4px rgba(0, 0, 0, 0.25) underline;
-  text-underline-offset: clamp(4px, 1.5vw, 8px);
+.grid .cell-word-end::before {
+  opacity: 0.5;
 }
 
 /* https://developers.google.com/fonts/docs/material_icons */

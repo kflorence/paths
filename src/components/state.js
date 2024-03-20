@@ -6,20 +6,17 @@ const params = new URLSearchParams(location.search)
 
 export class State {
   key
+  #value
 
-  #current
-  #original
-
-  constructor (key, state) {
+  constructor (key, state = {}) {
     this.key = key
-    this.#current = structuredClone(state)
-    this.#original = structuredClone(state)
+    this.#value = structuredClone(state)
 
     this.load()
   }
 
   get () {
-    return structuredClone(this.#current)
+    return structuredClone(this.#value)
   }
 
   load () {
@@ -39,15 +36,11 @@ export class State {
     }
   }
 
-  reset () {
-    this.set(this.#original)
-  }
-
   set (state) {
-    this.#current = structuredClone(state)
+    this.#value = structuredClone(state)
     if (!params.has(Game.Params.state)) {
       // Don't overwrite local state with cached state loaded from URL
-      localStorage.setItem(this.key, JSON.stringify(this.#current))
+      localStorage.setItem(this.key, JSON.stringify(this.#value))
     }
     return this.get()
   }

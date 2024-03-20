@@ -15,11 +15,14 @@ const params = new URLSearchParams(location.search)
 
 export class Game {
   #dictionary
+  #down
   #eventListeners = new EventListeners({ context: this })
   #grid
+  #path = []
   #pointer
-  #selected = []
+  #selection = []
   #state
+  #words = []
 
   constructor () {
     this.#dictionary = new Dictionary()
@@ -31,70 +34,51 @@ export class Game {
       id = Game.defaultId()
     }
 
-    const width = params.get(Game.Params.width)
-    const configuration = new Grid.Generator(id, width)
-
-    this.#state = new State(configuration.seed, configuration)
-    this.#grid = new Grid(this, this.#state.get())
+    this.#grid = new Grid(id, params.get(Game.Params.width))
+    this.#state = new State(this.#grid.getSeed())
 
     $id.href = `?id=${id}`
     $id.textContent = id
 
-    this.#eventListeners.add([
-      // Listening on document to handle pointerup outside the grid area
-      { context: this.#grid, handler: this.#grid.deselect, type: 'pointerup' },
-      { element: $reset, handler: this.reset, type: 'click' }
+    this.#eventListeners.add({ element: this.#grid.getElement() }, [
+      { type: 'click', element: $reset, handler: this.reset },
+      { type: 'pointerdown', handler: this.#onPointerDown },
+      { type: 'pointerenter', handler: this.#onPointerEnter },
+      { type: 'pointerleave', handler: this.#onPointerLeave },
+      { type: 'pointerup', element: document.body, handler: this.#onPointerUp },
     ])
 
-    // Build the words list based on data stored in cell state
-    this.#grid.cells.filter((cell) => cell.getSelected()).forEach((cell) => {
-      const [rowIndex, columnIndex] = cell.getSelected().split(',')
-      return ((this.#selected[rowIndex] ??= [])[columnIndex] = cell)
-    })
-
     this.update()
-  }
-
-  getLastSelected () {
-    const path = this.getPath()
-    return path[path.length - 1]
-  }
-
-  getPath () {
-    return this.#selected.flat()
-  }
-
-  getWords () {
-    return Array.from(this.#selected.map(Game.getWord))
   }
 
   reset () {
     this.#grid.reset()
 
     this.#pointer = undefined
-    this.#selected = []
+    this.#path = []
 
     this.update()
   }
 
-  select (cells) {
+  validate (cells) {
     // Accept words spelled backwards or forwards
     const words = [Game.getWord(cells), Game.getWord(Array.from(cells).reverse())]
     if (words.some((word) => this.#dictionary.isValid(word))) {
-      this.#selected.push(cells)
+      this.#path.push(cells)
     } else {
-      cells.forEach((cell) => cell.deselect())
+      cells.forEach((cell) => cell.disconnect())
     }
 
     this.update()
   }
 
   update () {
-    const pointer = this.getLastSelected()
-    if (!this.#pointer?.equals(pointer)) {
-      // Update the state of the cells in the DOM based on the words multidimensional array
-      const lastRowIndex = this.#selected.length - 1
-      this.#selected.forEach((cells, rowIndex) => {
+    this.#grid.update(this.#state)
+
+    const lastIndex = this.#path.length - 1
+    if (this.#pointer < lastIndex) {
+      // Update the state of the cells in the DOM
+      this.#path.forEach((cells, rowIndex) => {
         const lastColumnIndex = cells.length - 1
         cells.forEach((cell, columnIndex) => {
           const classNames = [Cell.ClassNames.Word]
@@ -112,7 +96,7 @@ export class Game {
             classNames.push(Cell.ClassNames.WordEnd)
           }
 
-          const nextCell = cells[columnIndex + 1] ?? this.#selected[rowIndex + 1]?.[0]
+          const nextCell = cells[columnIndex + 1] ?? this.#path[rowIndex + 1]?.[0]
           if (nextCell) {
             classNames.push(cell.getDirection(nextCell))
           }
@@ -123,7 +107,7 @@ export class Game {
         })
       })
 
-      this.#pointer = pointer
+      this.#pointer = lastIndex
     }
 
     this.#updateScore()
@@ -131,10 +115,51 @@ export class Game {
     this.#state.set(Object.assign(this.#state.get(), { grid: this.#grid.getState() }))
   }
 
+  #onPointerDown (event) {}
+
+  #onPointerEnter (event) {}
+
+  #onPointerLeave (event) {}
+
+  #onPointerUp (event) {}
+
+  #select (cell, event) {
+    if (event.type === 'pointerdown') {
+      this.#down = event
+    }
+
+    if (!this.#down || cell.getFlags().has(Cell.Flags.Word)) {
+      // Can't select anything without a pointerdown event
+      // Can't select a cell that is already part of a word
+      return
+    }
+
+    const index = this.#selection.findIndex((selected) => selected.equals(cell))
+    if (index > -1) {
+      // Going back to an already selected cell, remove everything selected after it
+      this.#selection.splice(index + 1).forEach((cell) => cell.reset())
+      return
+    }
+
+    const previous = this.getLastSelected()
+    const last = previous ?? this.#parent.getLastSelected()
+    if (last && !last.isNeighbor(cell)) {
+      return
+    }
+
+    cell.select(previous)
+
+    this.#selection.push(cell)
+
+    if (this.#swap && this.#selection.length > 1) {
+      this.#swap.removeClassNames(Cell.ClassNames.Swapped)
+      this.#swap = undefined
+    }
+  }
+
   #updateScore () {
     // Newest at top
-    const words = this.getWords()
-    $words.replaceChildren(...words.map((word) => {
+    $words.replaceChildren(...this.#words.map((word) => {
       const $element = document.createElement('li')
       $element.textContent = word
       return $element
