@@ -10,7 +10,7 @@ export class Grid {
   #rand
   #size
   #seed
-  #state
+  #state = []
   #width
 
   constructor (id, width) {
@@ -26,9 +26,9 @@ export class Grid {
     for (let index = 0; index < this.#size; index++) {
       const row = Math.floor(index / this.#width)
       const column = index % this.#width
-      const state = new Cell.State(this.#nextLetter())
+      const state = new Cell.State(index, this.#nextLetter())
       this.#state.push(state)
-      this.#cells.push(new Cell(index, new Coordinates(row, column), state))
+      this.#cells.push(new Cell(new Coordinates(row, column), state))
     }
 
     this.#$element.replaceChildren(...this.#cells.map((cell) => cell.getElement()))

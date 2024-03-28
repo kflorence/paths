@@ -1,7 +1,7 @@
-export function getClassName(...parts) {
+export function getClassName (...parts) {
   return parts.join('-')
 }
 
-export function getSelector(className) {
+export function getSelector (className) {
   return `.${className}`
 }

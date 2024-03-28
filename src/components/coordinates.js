@@ -1,12 +1,19 @@
+export const Directions = Object.freeze({
+  Down: 'down',
+  Left: 'left',
+  Right: 'right',
+  Up: 'up'
+})
+
 export class Coordinates {
   id
-  neighbors
+
+  #neighbors
 
   constructor (row, column) {
     this.id = [row, column].join(',')
     this.row = Number(row)
     this.column = Number(column)
-    this.neighbors = Coordinates.getNeighbors(this)
   }
 
   add (other) {
@@ -18,11 +25,15 @@ export class Coordinates {
   }
 
   getDirection (other) {
-    return this.neighbors.find((neighbor) => neighbor.equals(other))?.direction
+    return this.getNeighbors().find((neighbor) => neighbor.coordinates.equals(other))?.direction
+  }
+
+  getNeighbors () {
+    return this.#neighbors ?? (this.#neighbors = Coordinates.getNeighbors(this))
   }
 
   isNeighbor (other) {
-    return this.neighbors.some((neighbor) => neighbor.equals(other))
+    return this.getNeighbors().some((neighbor) => neighbor.coordinates.equals(other))
   }
 
   toString () {
@@ -34,21 +45,21 @@ export class Coordinates {
   }
 
   static getNeighbors (coordinates) {
-    return Coordinates.Offsets
-      .map((offset) => ({ coordinates: coordinates.add(offset.coordinates), direction: offset.direction }))
+    return Coordinates.Neighbors
+      .map((neighbor) => new Coordinates.Neighbor(neighbor.direction, coordinates.add(neighbor.coordinates)))
   }
 
-  static Offsets = Object.freeze([
-    { coordinates: new Coordinates(1, 0), direction: Directions.Down },
-    { coordinates: new Coordinates(0, -1), direction: Directions.Left },
-    { coordinates: new Coordinates(0, 1), direction: Directions.Right },
-    { coordinates: new Coordinates(-1, 0), direction: Directions.Up }
+  static Neighbor = class {
+    constructor (direction, coordinates) {
+      this.direction = direction
+      this.coordinates = coordinates
+    }
+  }
+
+  static Neighbors = Object.freeze([
+    new Coordinates.Neighbor(Directions.Down, new Coordinates(1, 0)),
+    new Coordinates.Neighbor(Directions.Left, new Coordinates(0, -1)),
+    new Coordinates.Neighbor(Directions.Right, new Coordinates(0, 1)),
+    new Coordinates.Neighbor(Directions.Up, new Coordinates(-1, 0))
   ])
 }
-
-export const Directions = Object.freeze({
-  Down: 'down',
-  Left: 'left',
-  Right: 'right',
-  Up: 'up'
-})

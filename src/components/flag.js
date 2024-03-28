@@ -11,12 +11,12 @@ export class Flag {
 export class Flags {
   #value
 
-  constructor (value) {
-    this.set(value ?? 0)
+  constructor (value = 0) {
+    this.set(value)
   }
 
   add (...flags) {
-    flags.forEach((flag) => { this.#value |= flag })
+    flags.forEach((flag) => { this.#value |= flag.value })
     return this
   }
 
@@ -24,16 +24,16 @@ export class Flags {
     return this.#value
   }
 
-  has (flag) {
-    return (this.#value & flag) > 0
+  has (...flags) {
+    return flags.some((flag) => (this.#value & flag.value) > 0)
   }
 
   remove (...flags) {
-    flags.forEach((flag) => { this.#value &= ~flag })
+    flags.forEach((flag) => { this.#value &= ~flag.value })
     return this
   }
 
   set (value) {
-    this.#value = value
+    this.#value = (value instanceof Flags) ? value.get() : value
   }
 }

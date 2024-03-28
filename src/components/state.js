@@ -8,9 +8,9 @@ export class State {
   key
   #value
 
-  constructor (key, state = {}) {
+  constructor (value, key) {
     this.key = key
-    this.#value = structuredClone(state)
+    this.#value = structuredClone(value)
 
     this.load()
   }
@@ -20,6 +20,10 @@ export class State {
   }
 
   load () {
+    if (this.key === undefined) {
+      return
+    }
+
     const cache = params.get(Game.Params.state) ?? localStorage.getItem(this.key)
     if (cache) {
       console.debug('Loading state from cache. seed:', this.key, cache)
@@ -38,10 +42,14 @@ export class State {
 
   set (state) {
     this.#value = structuredClone(state)
-    if (!params.has(Game.Params.state)) {
+    if (this.key !== undefined && !params.has(Game.Params.state)) {
       // Don't overwrite local state with cached state loaded from URL
       localStorage.setItem(this.key, JSON.stringify(this.#value))
     }
     return this.get()
+  }
+
+  update (f) {
+    return this.set(f(this.get()))
   }
 }

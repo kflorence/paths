@@ -5,6 +5,7 @@ import { EventListeners } from './eventListeners'
 import { State } from './state'
 
 const $footer = document.getElementById('footer')
+const $grid = document.getElementById('grid')
 const $id = document.getElementById('id')
 const $reset = document.getElementById('reset')
 const $score = document.getElementById('score')
@@ -15,8 +16,7 @@ const params = new URLSearchParams(location.search)
 
 export class Game {
   #dictionary
-  #down
-  #eventListeners = new EventListeners({ context: this })
+  #eventListeners = new EventListeners({ context: this, element: $grid })
   #grid
   #path = []
   #pointer
@@ -35,17 +35,15 @@ export class Game {
     }
 
     this.#grid = new Grid(id, params.get(Game.Params.width))
-    this.#state = new State(this.#grid.getSeed())
+    this.#state = new State({}, this.#grid.getSeed())
 
     $id.href = `?id=${id}`
     $id.textContent = id
 
-    this.#eventListeners.add({ element: this.#grid.getElement() }, [
+    this.#eventListeners.add([
+      { type: Cell.Events.Select, handler: this.#onCellSelect },
       { type: 'click', element: $reset, handler: this.reset },
-      { type: 'pointerdown', handler: this.#onPointerDown },
-      { type: 'pointerenter', handler: this.#onPointerEnter },
-      { type: 'pointerleave', handler: this.#onPointerLeave },
-      { type: 'pointerup', element: document.body, handler: this.#onPointerUp },
+      { type: 'pointerup', element: document, handler: this.#onPointerUp }
     ])
 
     this.update()
@@ -73,88 +71,84 @@ export class Game {
   }
 
   update () {
-    this.#grid.update(this.#state)
-
-    const lastIndex = this.#path.length - 1
-    if (this.#pointer < lastIndex) {
-      // Update the state of the cells in the DOM
-      this.#path.forEach((cells, rowIndex) => {
-        const lastColumnIndex = cells.length - 1
-        cells.forEach((cell, columnIndex) => {
-          const classNames = [Cell.ClassNames.Word]
-          if (columnIndex < lastColumnIndex) {
-            if (columnIndex === 0) {
-              if (rowIndex === 0) {
-                classNames.push(Cell.ClassNames.First)
-              }
-              classNames.push(Cell.ClassNames.WordStart)
-            }
-          } else {
-            if (rowIndex === lastRowIndex) {
-              classNames.push(Cell.ClassNames.Last)
-            }
-            classNames.push(Cell.ClassNames.WordEnd)
-          }
-
-          const nextCell = cells[columnIndex + 1] ?? this.#path[rowIndex + 1]?.[0]
-          if (nextCell) {
-            classNames.push(cell.getDirection(nextCell))
-          }
-
-          cell.removeClassNamesExcept(Cell.ClassNames.Cell, Cell.ClassNames.Selected)
-          cell.addClassNames(...classNames)
-          cell.setSelected([rowIndex, columnIndex].join(','))
-        })
-      })
-
-      this.#pointer = lastIndex
-    }
-
-    this.#updateScore()
-
-    this.#state.set(Object.assign(this.#state.get(), { grid: this.#grid.getState() }))
+    // this.#grid.update(this.#state)
+    //
+    // const lastIndex = this.#path.length - 1
+    // if (this.#pointer < lastIndex) {
+    //   // Update the state of the cells in the DOM
+    //   this.#path.forEach((cells, rowIndex) => {
+    //     const lastColumnIndex = cells.length - 1
+    //     cells.forEach((cell, columnIndex) => {
+    //       const classNames = [Cell.ClassNames.Word]
+    //       if (columnIndex < lastColumnIndex) {
+    //         if (columnIndex === 0) {
+    //           if (rowIndex === 0) {
+    //             classNames.push(Cell.ClassNames.First)
+    //           }
+    //           classNames.push(Cell.ClassNames.WordStart)
+    //         }
+    //       } else {
+    //         if (rowIndex === lastRowIndex) {
+    //           classNames.push(Cell.ClassNames.Last)
+    //         }
+    //         classNames.push(Cell.ClassNames.WordEnd)
+    //       }
+    //
+    //       const nextCell = cells[columnIndex + 1] ?? this.#path[rowIndex + 1]?.[0]
+    //       if (nextCell) {
+    //         classNames.push(cell.getDirection(nextCell))
+    //       }
+    //
+    //       cell.removeClassNamesExcept(Cell.ClassNames.Cell, Cell.ClassNames.Selected)
+    //       cell.addClassNames(...classNames)
+    //       cell.setSelected([rowIndex, columnIndex].join(','))
+    //     })
+    //   })
+    //
+    //   this.#pointer = lastIndex
+    // }
+    //
+    // this.#updateScore()
+    //
+    // this.#state.set(Object.assign(this.#state.get(), { grid: this.#grid.getState() }))
   }
 
-  #onPointerDown (event) {}
-
-  #onPointerEnter (event) {}
-
-  #onPointerLeave (event) {}
-
-  #onPointerUp (event) {}
-
-  #select (cell, event) {
-    if (event.type === 'pointerdown') {
-      this.#down = event
-    }
-
-    if (!this.#down || cell.getFlags().has(Cell.Flags.Word)) {
-      // Can't select anything without a pointerdown event
-      // Can't select a cell that is already part of a word
-      return
-    }
-
+  #onCellSelect (event) {
+    const cell = event.detail.cell
     const index = this.#selection.findIndex((selected) => selected.equals(cell))
     if (index > -1) {
       // Going back to an already selected cell, remove everything selected after it
-      this.#selection.splice(index + 1).forEach((cell) => cell.reset())
+      const deselected = this.#selection.splice(index + 1)
+      deselected.forEach((cell) => {
+        return cell.update((state) =>
+          state.copy({ flags: state.getFlags().remove(Cell.Flags.Selected) })
+        )
+      })
+      this.#updateState(deselected)
       return
     }
 
-    const previous = this.getLastSelected()
-    const last = previous ?? this.#parent.getLastSelected()
+    const last = this.#path[this.#path.length - 1] ?? this.#selection[this.#selection.length - 1]
     if (last && !last.isNeighbor(cell)) {
+      // Can only select cells that are neighbors of the last cell
       return
     }
-
-    cell.select(previous)
 
     this.#selection.push(cell)
 
-    if (this.#swap && this.#selection.length > 1) {
-      this.#swap.removeClassNames(Cell.ClassNames.Swapped)
-      this.#swap = undefined
+    const flags = [Cell.Flags.Path, Cell.Flags.Selected]
+    if (last) {
+      flags.push(Cell.directionToFlag(cell.getCoordinates().getDirection(last.getCoordinates())))
     }
+
+    // Note: Selection updates are not stored in state
+    cell.update((state) => {
+      return state.copy({ flags: state.getFlags().add(...flags) })
+    })
+  }
+
+  #onPointerUp (event) {
+    console.log('onPointerUp', event)
   }
 
   #updateScore () {
@@ -164,6 +158,10 @@ export class Game {
       $element.textContent = word
       return $element
     }))
+  }
+
+  #updateState (cells) {
+    // TODO: update state
   }
 
   static getWord (cells) {

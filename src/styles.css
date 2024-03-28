@@ -212,18 +212,17 @@ footer {
   height: calc(100% - 16px);
 }
 
-.grid .cell-path {
+.grid .cell-selected {
   background-color: #FDFFF7;
   color: black;
 }
 
-.grid .cell-selected,
 .grid .cell-swapped {
   background-color: #B4ADEA;
   color: black;
 }
 
-.grid .cell-swapped.cell-path {
+.grid .cell-swapped.cell-selected {
   background-color: color-mix(in oklab, #B4ADEA, #FDFFF7)
 }
 
