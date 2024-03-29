@@ -75,48 +75,36 @@ export class Cell {
   }
 
   #onSelect (event) {
-    // Requires click/drag or touch
-    // Cannot select a cell that's already part of a word
-    if (event.buttons > 0 && !this.#state.getFlags().has(Cell.Flags.Word)) {
+    // Requirements for cell selection:
+    // - user is clicking or touching the cell
+    // - the cell is not already selected
+    if (event.buttons > 0 && !this.#state.getFlags().has(Cell.Flags.Selected)) {
       const detail = { cell: this }
       $grid.dispatchEvent(new CustomEvent(Cell.Events.Select, { detail }))
-    }
-  }
-
-  static directionToFlag (direction) {
-    switch (direction) {
-      case Directions.Down: {
-        return Cell.Flags.PathDown
-      }
-      case Directions.Left: {
-        return Cell.Flags.PathLeft
-      }
-      case Directions.Right: {
-        return Cell.Flags.PathRight
-      }
-      case Directions.Up: {
-        return Cell.Flags.PathUp
-      }
     }
   }
 
   static Events = Object.freeze({ Select: 'cell-select' })
 
   static Flags = Object.freeze({
-    First: new Flag('first', 0),
-    Last: new Flag('last', 1),
-    Path: new Flag('path', 2),
-    PathDown: new Flag('path-down', 3),
-    PathLeft: new Flag('path-left', 4),
-    PathRight: new Flag('path-right', 5),
-    PathUp: new Flag('path-up', 6),
-    Selected: new Flag('selected', 7),
-    Swapped: new Flag('swapped', 8),
-    Validated: new Flag('validated', 9),
-    Word: new Flag('word', 10),
-    WordEnd: new Flag('word-end', 11),
-    WordStart: new Flag('word-start', 12)
+    DirectionEast: new Flag(Directions.East, 0),
+    DirectionNorth: new Flag(Directions.North, 1),
+    DirectionNorthEast: new Flag(Directions.NorthEast, 2),
+    DirectionNorthWest: new Flag(Directions.NorthWest, 3),
+    DirectionSouth: new Flag(Directions.South, 4),
+    DirectionSouthEast: new Flag(Directions.SouthEast, 5),
+    DirectionSouthWest: new Flag(Directions.SouthWest, 6),
+    DirectionWest: new Flag(Directions.West, 7),
+    First: new Flag('first', 8),
+    Last: new Flag('last', 9),
+    Selected: new Flag('selected', 10),
+    Swapped: new Flag('swapped', 11),
+    Validated: new Flag('validated', 12),
+    WordEnd: new Flag('word-end', 13),
+    WordStart: new Flag('word-start', 14)
   })
+
+  static FlagsByName = Object.fromEntries(Object.values(Cell.Flags).map((flag) => [flag.name, flag]))
 
   static Name = 'cell'
 

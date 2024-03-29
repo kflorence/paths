@@ -1,16 +1,25 @@
 import { Cell } from './cell'
 import { lettersByWeight } from './letters'
 import { Coordinates } from './coordinates'
+import { State } from './state'
+import { EventListeners } from './eventListeners'
+import { Dictionary } from './dictionary'
+import { Flags } from './flag'
+
+const $grid = document.getElementById('grid')
 
 export class Grid {
-  #$element = document.getElementById('grid')
-
   #cells = []
+  #configuration = []
+  #eventListeners = new EventListeners({ context: this, element: $grid })
   #id
+  #path = []
   #rand
-  #size
   #seed
-  #state = []
+  #selection = []
+  #size
+  #state
+  #tapped
   #width
 
   constructor (id, width) {
@@ -19,19 +28,25 @@ export class Grid {
     this.#size = this.#width * this.#width
     this.#seed = Grid.cyrb53([this.#id, this.#width].join(','))
     this.#rand = Grid.splitmix32(this.#seed)
+    this.#state = new State(new Grid.State(), this.#seed)
 
     document.body.className = `grid-${this.#width}`
-    this.#$element.classList.add(Grid.ClassNames.Grid)
+    $grid.classList.add(Grid.ClassNames.Grid)
 
     for (let index = 0; index < this.#size; index++) {
       const row = Math.floor(index / this.#width)
       const column = index % this.#width
       const state = new Cell.State(index, this.#nextLetter())
-      this.#state.push(state)
+      this.#configuration.push(state)
       this.#cells.push(new Cell(new Coordinates(row, column), state))
     }
 
-    this.#$element.replaceChildren(...this.#cells.map((cell) => cell.getElement()))
+    $grid.replaceChildren(...this.#cells.map((cell) => cell.getElement()))
+
+    this.#eventListeners.add([
+      { type: Cell.Events.Select, handler: this.#onSelect },
+      { type: 'pointerup', element: document, handler: this.#onPointerUp }
+    ])
   }
 
   find ($cell) {
@@ -42,19 +57,65 @@ export class Grid {
     return this.#cells.findIndex((cell) => cell.getElement() === $cell)
   }
 
-  getElement () {
-    return this.#$element
-  }
-
-  getSeed () {
-    return this.#seed
-  }
-
   reset () {
     this.#cells.forEach((cell, index) => cell.update(this.#state[index]))
   }
 
-  swap (sourceCell, targetCell) {
+  update (state) {
+
+  }
+
+  #deselect (cells) {
+    cells.forEach((cell) =>
+      cell.update((state) => state.copy({ flags: state.getFlags().remove(Cell.Flags.Selected) })))
+  }
+
+  #nextLetter () {
+    const next = this.#rand()
+    return Grid.LettersByWeight.find(([, weight]) => weight > next)[0]
+  }
+
+  #onSelect (event) {
+    console.log('onSelect', event)
+    const cell = event.detail.cell
+    const index = this.#selection.findIndex((selected) => selected.equals(cell))
+    if (index > -1) {
+      // Going back to an already selected cell, remove everything selected after it
+      this.#deselect(this.#selection.splice(index + 1))
+      return
+    }
+
+    const flags = [Cell.Flags.Selected]
+    const lastSelectedCell = this.#selection[this.#selection.length - 1]
+    if (lastSelectedCell && lastSelectedCell.isNeighbor(cell)) {
+      flags.push(Cell.FlagsByName[lastSelectedCell.getCoordinates().getDirection(cell.getCoordinates())])
+    }
+
+    cell.update((state) => state.copy({ flags: state.getFlags().add(...flags) }))
+
+    this.#selection.push(cell)
+  }
+
+  #onTap (event) {
+
+  }
+
+  #onPointerUp () {
+    const length = this.#selection.length
+    if (length === 1) {
+      if (this.#tapped) {
+        this.#swap(this.#tapped, this.#selection[0])
+      } else {
+        this.#tapped = this.#selection[0]
+      }
+    } else if (length > 1) {
+      this.#validate(this.#selection)
+    }
+
+    this.#selection = []
+  }
+
+  #swap (sourceCell, targetCell) {
     const sourceState = sourceCell.getState()
     const sourceStateOriginal = this.#state[sourceCell.getIndex()]
     const targetState = targetCell.getState()
@@ -75,13 +136,55 @@ export class Grid {
     }))
   }
 
-  update (state) {
-
+  #updateState (f) {
+    this.#state.update((state) => {
+      state = new Grid.State(state)
+      return new Grid.State(f(state) ?? state)
+    })
   }
 
-  #nextLetter () {
-    const next = this.#rand()
-    return Grid.LettersByWeight.find(([, weight]) => weight > next)[0]
+  #validate (selection) {
+    const lastPathCell = this.#path[this.#path.length - 1]
+    const lastSelectionIndex = selection.length - 1
+
+    if (lastPathCell) {
+      const index = [0, lastSelectionIndex].find((index) => lastPathCell.isNeighbor(selection[index]))
+      if (!index) {
+        // Selection does not start or begin as a neighbor of an existing path item
+        return
+      } else if (index === lastSelectionIndex) {
+        // Selection was drawn in reverse
+        selection.reverse()
+      }
+    }
+
+    // Accept words spelled backwards or forwards
+    const words = [Grid.getWord(selection), Grid.getWord(Array.from(selection).reverse())]
+    if (words.some((word) => Dictionary.isValid(word))) {
+      const state = new Grid.State(this.#state.get())
+      if (lastPathCell) {
+        state.updateFlags(lastPathCell.getIndex(), (flags) => flags.remove(Cell.Flags.Last))
+      }
+
+      selection.forEach((cell, selectionIndex) => {
+        const cellIndex = cell.getIndex()
+        this.#updateState(cell.getIndex(), (state) => {
+          const flags = new Flags(state.flags)
+
+          if (selectionIndex === 0 && !lastPathCell) {
+            flags.add(Cell.Flags.First)
+          } else if (selectionIndex === lastSelectionIndex) {
+            flags.add(Cell.Flags.Last)
+          }
+
+          state.flags = flags
+        })
+      })
+
+      this.#path.push(selection)
+    } else {
+      cells.forEach((cell) => cell.disconnect())
+    }
   }
 
   /**
@@ -104,6 +207,10 @@ export class Grid {
     return 4294967296 * (2097151 & h2) + (h1 >>> 0)
   }
 
+  static getWord (cells) {
+    return cells.map((cell) => cell.getContent()).join('')
+  }
+
   // https://github.com/bryc/code/blob/master/jshash/PRNGs.md
   static splitmix32 (a) {
     return function () {
@@ -121,4 +228,36 @@ export class Grid {
   static DefaultWidth = 5
   static LettersByWeight = Object.entries(lettersByWeight)
   static Widths = Object.freeze([5, 7, 9])
+
+  static State = class {
+    flags
+    path
+    words
+
+    #flags = {}
+
+    constructor (state) {
+      this.flags = state.flags ?? {}
+      this.path = state.path ?? []
+      this.words = state.words ?? []
+
+      for (const key in this.flags) {
+        if (this.flags[key] === 0) {
+          // Remove empty flags
+          delete this.flags[key]
+        }
+      }
+    }
+
+    getFlags (index) {
+      return this.#flags[index] ?? (this.#flags[index] = new Flags(this.flags[index]))
+    }
+
+    updateFlags (index, f) {
+      this.flags[index] = f(this.getFlags(index)).value
+      if (this.flags[index] === 0) {
+        delete this.flags[index]
+      }
+    }
+  }
 }

@@ -11,8 +11,8 @@ export class Flag {
 export class Flags {
   #value
 
-  constructor (value = 0) {
-    this.set(value)
+  constructor (value) {
+    this.set(value ?? 0)
   }
 
   add (...flags) {

@@ -1,8 +1,20 @@
+import { getClassName } from './util'
+
+const direction = 'direction'
+const east = 'east'
+const north = 'north'
+const south = 'south'
+const west = 'west'
+
 export const Directions = Object.freeze({
-  Down: 'down',
-  Left: 'left',
-  Right: 'right',
-  Up: 'up'
+  East: getClassName(direction, east),
+  North: getClassName(direction, north),
+  NorthEast: getClassName(direction, north, east),
+  NorthWest: getClassName(direction, north, west),
+  South: getClassName(direction, south),
+  SouthEast: getClassName(direction, south, east),
+  SouthWest: getClassName(direction, south, west),
+  West: getClassName(direction, west)
 })
 
 export class Coordinates {
@@ -57,9 +69,9 @@ export class Coordinates {
   }
 
   static Neighbors = Object.freeze([
-    new Coordinates.Neighbor(Directions.Down, new Coordinates(1, 0)),
-    new Coordinates.Neighbor(Directions.Left, new Coordinates(0, -1)),
-    new Coordinates.Neighbor(Directions.Right, new Coordinates(0, 1)),
-    new Coordinates.Neighbor(Directions.Up, new Coordinates(-1, 0))
+    new Coordinates.Neighbor(Directions.South, new Coordinates(1, 0)),
+    new Coordinates.Neighbor(Directions.West, new Coordinates(0, -1)),
+    new Coordinates.Neighbor(Directions.East, new Coordinates(0, 1)),
+    new Coordinates.Neighbor(Directions.North, new Coordinates(-1, 0))
   ])
 }
