@@ -41,6 +41,10 @@ export class Cell {
     return this.#$element
   }
 
+  getFlags () {
+    return this.#state.getFlags()
+  }
+
   getIndex () {
     return this.#state.index
   }
@@ -53,20 +57,23 @@ export class Cell {
     return `[${Cell.Name}:${this.getCoordinates.toString()}]`
   }
 
-  update (f) {
-    if (typeof f === 'function') {
-      const state = f(this.#state)
-      console.log('state update', state)
+  update (state) {
+    if (state !== undefined) {
+      if (typeof state === 'function') {
+        state = state(this.#state)
+      }
       if (!(state instanceof Cell.State)) {
-        throw new Error('Return value from update function must be of type Cell.State!')
+        throw new Error('Cannot update cell state: value given is not of type Cell.State')
       }
       this.#state = state
     }
 
     this.#$element.className = Cell.Name
+    this.#$element.dataset.index = this.getIndex()
 
-    const flags = Object.values(Cell.Flags).filter((flag) => this.#state.getFlags().has(flag))
-    flags.forEach((flag) => this.#$element.classList.add(getClassName(Cell.Name, flag.name)))
+    const flags = this.getFlags()
+    const activeFlags = Object.values(Cell.Flags).filter((flag) => flags.has(flag))
+    activeFlags.forEach((flag) => this.#$element.classList.add(getClassName(Cell.Name, flag.name)))
 
     this.#$content.textContent = this.#state.content
     this.#$element.replaceChildren(this.#$content)
@@ -78,7 +85,8 @@ export class Cell {
     // Requirements for cell selection:
     // - user is clicking or touching the cell
     // - the cell is not already selected
-    if (event.buttons > 0 && !this.#state.getFlags().has(Cell.Flags.Selected)) {
+    // - the cell is not already validated
+    if (event.buttons > 0 && !this.#state.getFlags().has(Cell.Flags.Selected, Cell.Flags.Validated)) {
       const detail = { cell: this }
       $grid.dispatchEvent(new CustomEvent(Cell.Events.Select, { detail }))
     }

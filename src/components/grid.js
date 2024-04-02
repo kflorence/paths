@@ -13,7 +13,7 @@ export class Grid {
   #configuration = []
   #eventListeners = new EventListeners({ context: this, element: $grid })
   #id
-  #path = []
+  #pointerIndex = -1
   #rand
   #seed
   #selection = []
@@ -28,18 +28,22 @@ export class Grid {
     this.#size = this.#width * this.#width
     this.#seed = Grid.cyrb53([this.#id, this.#width].join(','))
     this.#rand = Grid.splitmix32(this.#seed)
-    this.#state = new State(new Grid.State(), this.#seed)
+    this.#state = new State(new Grid.State({ seed: this.#seed }), this.#seed)
 
     document.body.className = `grid-${this.#width}`
     $grid.classList.add(Grid.ClassNames.Grid)
 
+    const indexes = []
     for (let index = 0; index < this.#size; index++) {
       const row = Math.floor(index / this.#width)
       const column = index % this.#width
-      const state = new Cell.State(index, this.#nextLetter())
-      this.#configuration.push(state)
-      this.#cells.push(new Cell(new Coordinates(row, column), state))
+      const configuration = new Cell.State(index, this.#nextLetter())
+      this.#configuration.push(configuration)
+      this.#cells.push(new Cell(new Coordinates(row, column), configuration))
+      indexes.push(index)
     }
+
+    this.#update(indexes)
 
     $grid.replaceChildren(...this.#cells.map((cell) => cell.getElement()))
 
@@ -58,16 +62,16 @@ export class Grid {
   }
 
   reset () {
-    this.#cells.forEach((cell, index) => cell.update(this.#state[index]))
-  }
-
-  update (state) {
-
+    this.#cells.forEach((cell, index) => cell.update(this.#configuration[index]))
+    this.#state.set(new Grid.State({ seed: this.#seed }))
   }
 
   #deselect (cells) {
-    cells.forEach((cell) =>
-      cell.update((state) => state.copy({ flags: state.getFlags().remove(Cell.Flags.Selected) })))
+    cells.forEach((cell) => cell.update((state) => state.getFlags().remove(Cell.Flags.Selected)))
+  }
+
+  #getState () {
+    return new Grid.State(this.#state.get())
   }
 
   #nextLetter () {
@@ -96,21 +100,21 @@ export class Grid {
     this.#selection.push(cell)
   }
 
-  #onTap (event) {
-
-  }
-
   #onPointerUp () {
+    const indexes = this.#selection.map((cell) => cell.getIndex())
     const length = this.#selection.length
     if (length === 1) {
       if (this.#tapped) {
         this.#swap(this.#tapped, this.#selection[0])
+        this.#tapped = undefined
       } else {
         this.#tapped = this.#selection[0]
       }
     } else if (length > 1) {
-      this.#validate(this.#selection)
+      this.#validate(indexes)
     }
+
+    this.#update(indexes)
 
     this.#selection = []
   }
@@ -136,54 +140,81 @@ export class Grid {
     }))
   }
 
-  #updateState (f) {
-    this.#state.update((state) => {
-      state = new Grid.State(state)
-      return new Grid.State(f(state) ?? state)
+  #update (indexes) {
+    const state = this.#getState()
+    const lastPathIndex = state.path.length - 1
+
+    // TODO: swapped cells
+    indexes.forEach((index) => {
+      const cell = this.#cells[index]
+      const flags = new Flags()
+
+      // Handle cells that are part of the path
+      const pathIndex = state.path.indexOf(index)
+      if (pathIndex >= 0) {
+        const previousPathIndex = pathIndex - 1
+        if (previousPathIndex >= 0) {
+          // Link this cell to the previous cell
+          const previousCell = this.#cells[state.path[previousPathIndex]]
+          flags.add(Cell.FlagsByName[cell.getCoordinates().getDirection(previousCell.getCoordinates())])
+        }
+
+        if (pathIndex === 0) {
+          flags.add(Cell.Flags.First)
+        }
+
+        if (pathIndex === lastPathIndex) {
+          if (lastPathIndex !== this.#pointerIndex && this.#pointerIndex >= 0) {
+            // Remove flag from the old last path item
+            this.#cells[this.#pointerIndex].update((state) =>
+              state.copy({ flags: state.getFlags().remove(Cell.Flags.Last) }))
+          }
+
+          flags.add(Cell.Flags.Last)
+        }
+      }
+
+      const word = state.words.find((indexes) => indexes.includes(index))
+      if (word) {
+        flags.add(Cell.Flags.Validated)
+
+        const wordIndex = word.indexOf(index)
+        if (wordIndex === 0) {
+          flags.add(Cell.Flags.WordStart)
+        } else if (wordIndex === word.length - 1) {
+          flags.add(Cell.Flags.WordEnd)
+        }
+      }
+
+      cell.update((state) => state.copy({ flags }))
     })
+
+    this.#pointerIndex = lastPathIndex
   }
 
-  #validate (selection) {
-    const lastPathCell = this.#path[this.#path.length - 1]
-    const lastSelectionIndex = selection.length - 1
+  #validate (indexes) {
+    const state = this.#getState()
+    const lastPathIndex = state.path.length - 1
+    const lastSelectionIndex = this.#selection.length - 1
 
-    if (lastPathCell) {
-      const index = [0, lastSelectionIndex].find((index) => lastPathCell.isNeighbor(selection[index]))
+    if (lastPathIndex >= 0) {
+      const index = [0, lastSelectionIndex].find((index) =>
+        this.#cells[lastPathIndex].isNeighbor(this.#selection[index]))
       if (!index) {
         // Selection does not start or begin as a neighbor of an existing path item
         return
       } else if (index === lastSelectionIndex) {
         // Selection was drawn in reverse
-        selection.reverse()
+        this.#selection.reverse()
       }
     }
 
     // Accept words spelled backwards or forwards
-    const words = [Grid.getWord(selection), Grid.getWord(Array.from(selection).reverse())]
+    const words = [Grid.getWord(this.#selection), Grid.getWord(Array.from(this.#selection).reverse())]
     if (words.some((word) => Dictionary.isValid(word))) {
-      const state = new Grid.State(this.#state.get())
-      if (lastPathCell) {
-        state.updateFlags(lastPathCell.getIndex(), (flags) => flags.remove(Cell.Flags.Last))
-      }
-
-      selection.forEach((cell, selectionIndex) => {
-        const cellIndex = cell.getIndex()
-        this.#updateState(cell.getIndex(), (state) => {
-          const flags = new Flags(state.flags)
-
-          if (selectionIndex === 0 && !lastPathCell) {
-            flags.add(Cell.Flags.First)
-          } else if (selectionIndex === lastSelectionIndex) {
-            flags.add(Cell.Flags.Last)
-          }
-
-          state.flags = flags
-        })
-      })
-
-      this.#path.push(selection)
-    } else {
-      cells.forEach((cell) => cell.disconnect())
+      state.path.push(...indexes)
+      state.words.push(indexes)
+      this.#state.set(state)
     }
   }
 
@@ -230,34 +261,16 @@ export class Grid {
   static Widths = Object.freeze([5, 7, 9])
 
   static State = class {
-    flags
     path
+    seed
+    swaps
     words
 
-    #flags = {}
-
     constructor (state) {
-      this.flags = state.flags ?? {}
       this.path = state.path ?? []
+      this.seed = state.seed
+      this.swaps = state.swaps ?? []
       this.words = state.words ?? []
-
-      for (const key in this.flags) {
-        if (this.flags[key] === 0) {
-          // Remove empty flags
-          delete this.flags[key]
-        }
-      }
-    }
-
-    getFlags (index) {
-      return this.#flags[index] ?? (this.#flags[index] = new Flags(this.flags[index]))
-    }
-
-    updateFlags (index, f) {
-      this.flags[index] = f(this.getFlags(index)).value
-      if (this.flags[index] === 0) {
-        delete this.flags[index]
-      }
     }
   }
 }

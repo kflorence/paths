@@ -11,8 +11,8 @@ export class Flag {
 export class Flags {
   #value
 
-  constructor (value) {
-    this.set(value ?? 0)
+  constructor (...flags) {
+    this.set(...flags)
   }
 
   add (...flags) {
@@ -33,7 +33,17 @@ export class Flags {
     return this
   }
 
-  set (value) {
-    this.#value = (value instanceof Flags) ? value.get() : value
+  set (...flags) {
+    this.#value = 0
+    flags.forEach((flag) => {
+      if (typeof flag === 'number') {
+        this.#value = flag
+      } else if (flag instanceof Flags) {
+        this.#value = flag.get()
+      } else if (flag instanceof Flag) {
+        this.add(flag)
+      }
+    })
+    return this
   }
 }
