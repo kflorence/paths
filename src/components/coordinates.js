@@ -52,10 +52,6 @@ export class Coordinates {
     return this.id
   }
 
-  static fromString (coordinates) {
-    return new Coordinates(...coordinates.split(','))
-  }
-
   static getNeighbors (coordinates) {
     return Coordinates.Neighbors
       .map((neighbor) => new Coordinates.Neighbor(neighbor.direction, coordinates.add(neighbor.coordinates)))

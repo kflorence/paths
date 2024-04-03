@@ -226,11 +226,11 @@ footer {
   background-color: color-mix(in oklab, #B4ADEA, #FDFFF7)
 }
 
-.grid .cell-swapped.cell-word {
+.grid .cell-swapped.cell-validated {
   background-color: color-mix(in oklab, #B4ADEA, #59FFA0)
 }
 
-.grid .cell-word {
+.grid .cell-validated {
   background-color: #59FFA0;
 }
 

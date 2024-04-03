@@ -82,11 +82,8 @@ export class Cell {
   }
 
   #onSelect (event) {
-    // Requirements for cell selection:
-    // - user is clicking or touching the cell
-    // - the cell is not already selected
-    // - the cell is not already validated
-    if (event.buttons > 0 && !this.#state.getFlags().has(Cell.Flags.Selected, Cell.Flags.Validated)) {
+    if (event.buttons > 0) {
+      // User has clicked or touched the cell
       const detail = { cell: this }
       $grid.dispatchEvent(new CustomEvent(Cell.Events.Select, { detail }))
     }
