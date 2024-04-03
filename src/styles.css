@@ -42,7 +42,7 @@ header .flex-left {
 footer {
   background-color: #333;
   border-radius: 8px;
-  flex-link: column;
+  flex-direction: column;
   margin-top: 4px;
 }
 
@@ -59,30 +59,51 @@ footer {
 #score {
   color: #FFED65;
   cursor: pointer;
-  padding: 0.5em 1em;
+  padding: 1em;
   user-select: none;
 }
 
 #title {
-  padding: 0.5em 0 0.5em 1em;
-}
-
-#words {
-  border-top: #50514F 1px solid;
-  color: #A7A9A4;
-  display: none;
-  list-style: decimal inside;
-  margin: 0;
-  padding: 0.5em 1em;
-}
-
-.expanded #words {
-  display: block;
+  padding: 1em 0 1em 1em;
 }
 
 .container {
   display: flex;
   width: 100%;
+}
+
+.drawer {
+  border-top: #50514F 1px solid;
+  display: none;
+  padding: 1em;
+}
+
+.drawer h3 {
+  margin: 0;
+}
+
+.drawer ul {
+  color: #d2d3cd;
+  list-style: decimal inside;
+  margin: 0;
+  padding: 0.5em 0;
+}
+
+.drawer ul.empty {
+  list-style: none;
+}
+
+.drawer ul.empty:after {
+  color: #50514F;
+  content: '--'
+}
+
+.drawer ul:last-child {
+  padding-bottom: 0;
+}
+
+.expanded .drawer {
+  display: block;
 }
 
 .flex-center,
@@ -270,7 +291,7 @@ footer {
   align-items: center;
   cursor: pointer;
   display: flex;
-  padding: 0.5em 1em;
+  padding: 1em;
 }
 
 .menu a {

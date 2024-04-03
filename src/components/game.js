@@ -5,6 +5,7 @@ const $footer = document.getElementById('footer')
 const $id = document.getElementById('id')
 const $reset = document.getElementById('reset')
 const $score = document.getElementById('score')
+const $swaps = document.getElementById('swaps')
 const $words = document.getElementById('words')
 
 const location = window.location
@@ -13,7 +14,6 @@ const params = new URLSearchParams(location.search)
 export class Game {
   #eventListeners = new EventListeners({ context: this })
   #grid
-  #words = []
 
   constructor () {
     let id = params.get(Game.Params.id) ?? Game.defaultId()
@@ -29,7 +29,8 @@ export class Game {
     $id.textContent = id
 
     this.#eventListeners.add([
-      { type: 'click', element: $reset, handler: this.reset }
+      { type: 'click', element: $reset, handler: this.reset },
+      { type: Grid.Events.Update, handler: this.update }
     ])
 
     this.update()
@@ -41,60 +42,33 @@ export class Game {
   }
 
   update () {
-    // this.#grid.update(this.#state)
-    //
-    // const lastIndex = this.#path.length - 1
-    // if (this.#pointer < lastIndex) {
-    //   // Update the state of the cells in the DOM
-    //   this.#path.forEach((cells, rowIndex) => {
-    //     const lastColumnIndex = cells.length - 1
-    //     cells.forEach((cell, columnIndex) => {
-    //       const classNames = [Cell.ClassNames.Word]
-    //       if (columnIndex < lastColumnIndex) {
-    //         if (columnIndex === 0) {
-    //           if (rowIndex === 0) {
-    //             classNames.push(Cell.ClassNames.First)
-    //           }
-    //           classNames.push(Cell.ClassNames.WordStart)
-    //         }
-    //       } else {
-    //         if (rowIndex === lastRowIndex) {
-    //           classNames.push(Cell.ClassNames.Last)
-    //         }
-    //         classNames.push(Cell.ClassNames.WordEnd)
-    //       }
-    //
-    //       const nextCell = cells[columnIndex + 1] ?? this.#path[rowIndex + 1]?.[0]
-    //       if (nextCell) {
-    //         classNames.push(cell.getDirection(nextCell))
-    //       }
-    //
-    //       cell.removeClassNamesExcept(Cell.ClassNames.Cell, Cell.ClassNames.Selected)
-    //       cell.addClassNames(...classNames)
-    //       cell.setSelected([rowIndex, columnIndex].join(','))
-    //     })
-    //   })
-    //
-    //   this.#pointer = lastIndex
-    // }
-    //
-    // this.#updateScore()
-    //
-    // this.#state.set(Object.assign(this.#state.get(), { grid: this.#grid.getState() }))
+    this.#updateScore()
+    this.#updateSwaps()
+    this.#updateWords()
   }
 
   #updateScore () {
-    // Newest at top
-    $words.replaceChildren(...this.#words.map((word) => {
+    const words = this.#grid.getWords()
+    $words.classList.toggle('empty', words.length === 0)
+    $words.replaceChildren(...words.map((word) => {
       const $element = document.createElement('li')
       $element.textContent = word
       return $element
     }))
   }
 
-  #updateState (cells) {
-    // TODO: update state
+  #updateSwaps () {
+    const swaps = this.#grid.getSwaps()
+
+    $swaps.classList.toggle('empty', swaps.length === 0)
+    $swaps.replaceChildren(...swaps.map((swap) => {
+      const $element = document.createElement('li')
+      $element.textContent = swap.join(' → ')
+      return $element
+    }))
   }
+
+  #updateWords () {}
 
   static defaultId () {
     // The ID for the daily puzzle

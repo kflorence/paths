@@ -5,6 +5,7 @@ import { State } from './state'
 import { EventListeners } from './eventListeners'
 import { Dictionary } from './dictionary'
 import { Flags } from './flag'
+import { getClassName } from './util'
 
 const $grid = document.getElementById('grid')
 
@@ -53,12 +54,17 @@ export class Grid {
     ])
   }
 
-  find ($cell) {
-    return this.#cells[this.findIndex($cell)]
+  getSwaps () {
+    return this.#getState().swaps.map((indexes) => indexes.map((index) => {
+      const cell = this.#cells[index]
+      const content = this.#configuration[index].content
+      const coordinates = cell.getCoordinates().toString()
+      return `${content} (${coordinates})`
+    }))
   }
 
-  findIndex ($cell) {
-    return this.#cells.findIndex((cell) => cell.getElement() === $cell)
+  getWords () {
+    return this.#getState().words.map((indexes) => indexes.map((index) => this.#cells[index].getContent()).join(''))
   }
 
   reset () {
@@ -225,6 +231,8 @@ export class Grid {
     })
 
     this.#pointerIndex = lastPathIndex
+
+    document.dispatchEvent(new CustomEvent(Grid.Events.Update))
   }
 
   /**
@@ -304,8 +312,10 @@ export class Grid {
     }
   }
 
-  static ClassNames = Object.freeze({ Grid: 'grid' })
+  static Name = 'grid'
+  static ClassNames = Object.freeze({ Grid: Grid.Name })
   static DefaultWidth = 5
+  static Events = Object.freeze({ Update: getClassName(Grid.Name, 'update') })
   static LettersByWeight = Object.entries(lettersByWeight)
   static Widths = Object.freeze([5, 7, 9])
 
