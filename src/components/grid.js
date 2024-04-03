@@ -1,11 +1,11 @@
 import { Cell } from './cell'
-import { lettersByWeight } from './letters'
 import { Coordinates } from './coordinates'
 import { State } from './state'
 import { EventListeners } from './eventListeners'
-import { Dictionary } from './dictionary'
+import { Word } from './word'
 import { Flags } from './flag'
 import { getClassName } from './util'
+import { letters } from './letter'
 
 const $grid = document.getElementById('grid')
 
@@ -38,7 +38,8 @@ export class Grid {
     for (let index = 0; index < this.#size; index++) {
       const row = Math.floor(index / this.#width)
       const column = index % this.#width
-      const configuration = new Cell.State(index, this.#nextLetter())
+      const letter = this.#nextLetter()
+      const configuration = new Cell.State(index, letter.character)
       this.#configuration.push(configuration)
       this.#cells.push(new Cell(new Coordinates(row, column), configuration))
       indexes.push(index)
@@ -64,7 +65,7 @@ export class Grid {
   }
 
   getWords () {
-    return this.#getState().words.map((indexes) => indexes.map((index) => this.#cells[index].getContent()).join(''))
+    return this.#getState().words.map((indexes) => new Word(indexes.map((index) => this.#cells[index])))
   }
 
   reset () {
@@ -81,8 +82,8 @@ export class Grid {
   }
 
   #nextLetter () {
-    const next = this.#rand()
-    return Grid.LettersByWeight.find(([, weight]) => weight > next)[0]
+    const weight = this.#rand()
+    return letters.find((letter) => letter.weight > weight)
   }
 
   #onSelect (event) {
@@ -237,7 +238,6 @@ export class Grid {
 
   /**
    * Responsible for validating a selection of cells by index to see if the user has spelled a valid word.
-   * @param indexes The indexes of the cells to validate.
    */
   #validate (indexes) {
     const state = this.#getState()
@@ -246,22 +246,28 @@ export class Grid {
 
     if (lastPathIndex >= 0) {
       const last = this.#cells[state.path[lastPathIndex]]
-      console.log(this.#selection[0], this.#selection[lastSelectionIndex])
       const neighborIndex = [0, lastSelectionIndex].find((index) => last.isNeighbor(this.#selection[index]))
       if (neighborIndex === undefined) {
         console.debug('Selection does not start or begin as a neighbor of an existing path item, ignoring')
         return
       } else if (neighborIndex === lastSelectionIndex) {
+        console.debug('Selection drawn in reverse')
         // Selection was drawn in reverse
-        this.#selection.reverse()
+        indexes.reverse()
       }
     }
 
-    // Accept words spelled backwards or forwards
-    const words = [Grid.getWord(this.#selection), Grid.getWord(Array.from(this.#selection).reverse())]
-    if (words.some((word) => Dictionary.isValid(word))) {
+    let word = Grid.getWord(this.#selection)
+    if (!Word.isValid(word)) {
+      // Try the selection in reverse
+      word = Grid.getWord(this.#selection.reverse())
+    }
+
+    if (Word.isValid(word)) {
+      // Path indexes are pushed in relative distance to the last neighbor
       state.path.push(...indexes)
-      state.words.push(indexes)
+      // Word indexes are pushed in the correct order to spell the word
+      state.words.push(Grid.getIndexes(this.#selection))
       this.#state.set(state)
     }
   }
@@ -316,7 +322,6 @@ export class Grid {
   static ClassNames = Object.freeze({ Grid: Grid.Name })
   static DefaultWidth = 5
   static Events = Object.freeze({ Update: getClassName(Grid.Name, 'update') })
-  static LettersByWeight = Object.entries(lettersByWeight)
   static Widths = Object.freeze([5, 7, 9])
 
   static State = class {

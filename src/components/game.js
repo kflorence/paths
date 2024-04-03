@@ -43,13 +43,15 @@ export class Game {
   }
 
   update () {
-    this.#updateScore()
+    const words = this.#grid.getWords()
+
+    this.#updateScore(words)
     this.#updateSwaps()
-    this.#updateWords()
+    this.#updateWords(words)
   }
 
-  #updateScore () {
-
+  #updateScore (words) {
+    $score.textContent = words.reduce((points, word) => points + word.points, 0)
   }
 
   #updateSwaps () {
@@ -63,12 +65,11 @@ export class Game {
     }))
   }
 
-  #updateWords () {
-    const words = this.#grid.getWords()
+  #updateWords (words) {
     $words.classList.toggle('empty', words.length === 0)
     $words.replaceChildren(...words.map((word) => {
       const $element = document.createElement('li')
-      $element.textContent = word
+      $element.textContent = `${word.content} (${word.points})`
       return $element
     }))
   }
