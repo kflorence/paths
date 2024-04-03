@@ -1,5 +1,6 @@
 import { Grid } from './grid'
 import { EventListeners } from './eventListeners'
+import { State } from './state'
 
 const $footer = document.getElementById('footer')
 const $id = document.getElementById('id')
@@ -48,13 +49,7 @@ export class Game {
   }
 
   #updateScore () {
-    const words = this.#grid.getWords()
-    $words.classList.toggle('empty', words.length === 0)
-    $words.replaceChildren(...words.map((word) => {
-      const $element = document.createElement('li')
-      $element.textContent = word
-      return $element
-    }))
+
   }
 
   #updateSwaps () {
@@ -68,7 +63,15 @@ export class Game {
     }))
   }
 
-  #updateWords () {}
+  #updateWords () {
+    const words = this.#grid.getWords()
+    $words.classList.toggle('empty', words.length === 0)
+    $words.replaceChildren(...words.map((word) => {
+      const $element = document.createElement('li')
+      $element.textContent = word
+      return $element
+    }))
+  }
 
   static defaultId () {
     // The ID for the daily puzzle
@@ -90,10 +93,12 @@ export class Game {
   })
 }
 
-if ([Game.Params.expanded, Game.Params.state].some((param) => params.has(param))) {
+const expanded = State.get(Game.Params.expanded)
+if (expanded || [Game.Params.expanded, Game.Params.state].some((param) => params.has(param))) {
   $footer.classList.add(Game.Params.expanded)
 }
 
 $score.addEventListener('click', () => {
   $footer.classList.toggle(Game.Params.expanded)
+  State.set(Game.Params.expanded, $footer.classList.contains(Game.Params.expanded))
 })

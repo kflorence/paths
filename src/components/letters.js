@@ -1,4 +1,8 @@
-// https://en.wikipedia.org/wiki/Letter_frequency
+/**
+ * Stores letters by their frequency of usage. The values must add up to 1.
+ * @see https://en.wikipedia.org/wiki/Letter_frequency#Relative_frequencies_of_letters_in_the_English_language
+ * @type {Object.<string, number>}
+ */
 export const lettersByFrequency = {
   a: 0.08167,
   b: 0.01492,
@@ -28,5 +32,36 @@ export const lettersByFrequency = {
   z: 0.00074
 }
 
+const letters = Object.keys(lettersByFrequency)
+
+/**
+ * All letters start at 1 point and gain additional points based on which frequency buckets they fall into.
+ * @type {number[]} An array of frequency buckets
+ */
+const scoreFrequencyBuckets = [0.1, 0.5, 1, 4, 8].map((n) => n / 100)
+
+/**
+ * Stores letters by their score. The score is derived by creating buckets based on letter frequency.
+ * @type {Object.<string, number>}
+ */
+export const lettersByScore = {}
+letters.forEach((letter) => {
+  lettersByScore[letter] = scoreFrequencyBuckets
+    .reduce((score, bucket) => score + (lettersByFrequency[letter] < bucket ? 1 : 0), 1)
+})
+
+/**
+ * Stores letters by their cumulative frequency (weight). For example, given the following letters and frequencies:
+ * A = 0.1
+ * B = 0.4
+ * C = 0.5
+ *
+ * The resulting weights would be:
+ * A = 0.1
+ * B = 0.5 (0.1 + 0.4)
+ * C = 1.0 (0.1 + 0.4 + 0.5)
+ *
+ * @type {Object.<string, number>}
+ */
 export const lettersByWeight = {}
-Object.keys(lettersByFrequency).reduce((acc, letter) => (lettersByWeight[letter] = acc + lettersByFrequency[letter]), 0)
+letters.reduce((acc, letter) => (lettersByWeight[letter] = acc + lettersByFrequency[letter]), 0)

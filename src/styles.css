@@ -79,14 +79,15 @@ footer {
 }
 
 .drawer h3 {
-  margin: 0;
+  font-size: 1.2em;
+  margin: 0 0 0.5em 0;
 }
 
 .drawer ul {
   color: #d2d3cd;
   list-style: decimal inside;
   margin: 0;
-  padding: 0.5em 0;
+  padding: 0;
 }
 
 .drawer ul.empty {
@@ -98,8 +99,12 @@ footer {
   content: '--'
 }
 
-.drawer ul:last-child {
-  padding-bottom: 0;
+.drawer .section {
+  margin-bottom: 1em;
+}
+
+.drawer .section:last-child {
+  margin: 0;
 }
 
 .expanded .drawer {

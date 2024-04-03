@@ -52,4 +52,12 @@ export class State {
   update (f) {
     return this.set(f(this.get()))
   }
+
+  static get (key) {
+    return JSON.parse(localStorage.getItem(key))
+  }
+
+  static set (key, value) {
+    localStorage.setItem(key, JSON.stringify(value))
+  }
 }
