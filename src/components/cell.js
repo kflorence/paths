@@ -75,6 +75,7 @@ export class Cell {
     const activeFlags = Object.values(Cell.Flags).filter((flag) => flags.has(flag))
     activeFlags.forEach((flag) => this.#$element.classList.add(getClassName(Cell.Name, flag.name)))
 
+    this.#$content.className = 'content'
     this.#$content.textContent = this.#state.content
     this.#$element.replaceChildren(this.#$content)
 
@@ -92,21 +93,22 @@ export class Cell {
   static Events = Object.freeze({ Select: 'cell-select' })
 
   static Flags = Object.freeze({
-    DirectionEast: new Flag(Directions.East, 0),
-    DirectionNorth: new Flag(Directions.North, 1),
-    DirectionNorthEast: new Flag(Directions.NorthEast, 2),
-    DirectionNorthWest: new Flag(Directions.NorthWest, 3),
-    DirectionSouth: new Flag(Directions.South, 4),
-    DirectionSouthEast: new Flag(Directions.SouthEast, 5),
-    DirectionSouthWest: new Flag(Directions.SouthWest, 6),
-    DirectionWest: new Flag(Directions.West, 7),
-    First: new Flag('first', 8),
-    Last: new Flag('last', 9),
-    Selected: new Flag('selected', 10),
-    Swapped: new Flag('swapped', 11),
-    Validated: new Flag('validated', 12),
-    WordEnd: new Flag('word-end', 13),
-    WordStart: new Flag('word-start', 14)
+    DirectionEast: new Flag(Directions.East),
+    DirectionNorth: new Flag(Directions.North),
+    DirectionNorthEast: new Flag(Directions.NorthEast),
+    DirectionNorthWest: new Flag(Directions.NorthWest),
+    DirectionSouth: new Flag(Directions.South),
+    DirectionSouthEast: new Flag(Directions.SouthEast),
+    DirectionSouthWest: new Flag(Directions.SouthWest),
+    DirectionWest: new Flag(Directions.West),
+    First: new Flag('first'),
+    Last: new Flag('last'),
+    Path: new Flag('path'),
+    Selected: new Flag('selected'),
+    Swapped: new Flag('swapped'),
+    Validated: new Flag('validated'),
+    WordEnd: new Flag('word-end'),
+    WordStart: new Flag('word-start')
   })
 
   static FlagsByName = Object.fromEntries(Object.values(Cell.Flags).map((flag) => [flag.name, flag]))

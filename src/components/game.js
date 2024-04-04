@@ -6,6 +6,7 @@ const $footer = document.getElementById('footer')
 const $id = document.getElementById('id')
 const $reset = document.getElementById('reset')
 const $score = document.getElementById('score')
+const $status = document.getElementById('status')
 const $swaps = document.getElementById('swaps')
 const $words = document.getElementById('words')
 
@@ -99,7 +100,7 @@ if (expanded || [Game.Params.expanded, Game.Params.state].some((param) => params
   $footer.classList.add(Game.Params.expanded)
 }
 
-$score.addEventListener('click', () => {
+$status.addEventListener('click', () => {
   $footer.classList.toggle(Game.Params.expanded)
   State.set(Game.Params.expanded, $footer.classList.contains(Game.Params.expanded))
 })

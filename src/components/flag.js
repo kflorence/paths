@@ -1,10 +1,12 @@
+let nextValue = 0
+
 export class Flag {
   name
   value
 
-  constructor (name, value) {
+  constructor (name) {
     this.name = name
-    this.value = 1 << value
+    this.value = 1 << nextValue++
   }
 }
 

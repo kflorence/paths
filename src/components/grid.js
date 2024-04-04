@@ -69,12 +69,18 @@ export class Grid {
   }
 
   reset () {
-    this.#cells.forEach((cell, index) => cell.update(this.#configuration[index]))
     this.#state.set(new Grid.State({ seed: this.#seed }))
+    this.#update(Grid.getIndexes(this.#cells))
   }
 
   #deselect (cells) {
-    cells.forEach((cell) => cell.update((state) => state.getFlags().remove(Cell.Flags.Selected)))
+    cells.forEach((cell) => cell.update((state) => {
+      const flags = new Flags()
+      if (state.getFlags().has(Cell.Flags.Swapped)) {
+        flags.add(Cell.Flags.Swapped)
+      }
+      return state.copy({ flags })
+    }))
   }
 
   #getState () {
@@ -93,6 +99,7 @@ export class Grid {
       return
     }
 
+    // TODO: also check for already validated cell to prevent path from crossing
     const index = this.#selection.findIndex((selected) => selected.equals(cell))
     if (index > -1) {
       // Going back to an already selected cell, remove everything selected after it
@@ -101,9 +108,13 @@ export class Grid {
     }
 
     const flags = [Cell.Flags.Selected]
-    const lastSelectedCell = this.#selection[this.#selection.length - 1]
-    if (lastSelectedCell && lastSelectedCell.isNeighbor(cell)) {
-      flags.push(Cell.FlagsByName[lastSelectedCell.getCoordinates().getDirection(cell.getCoordinates())])
+    const length = this.#selection.length
+    if (length > 0) {
+      flags.push(Cell.Flags.Path)
+      const previousCell = this.#selection[length - 1]
+      if (previousCell?.isNeighbor(cell)) {
+        flags.push(Cell.FlagsByName[cell.getCoordinates().getDirection(previousCell.getCoordinates())])
+      }
     }
 
     cell.update((state) => state.copy({ flags: state.getFlags().add(...flags) }))
@@ -193,11 +204,13 @@ export class Grid {
       // Handle cells that are part of the path
       const pathIndex = state.path.indexOf(index)
       if (pathIndex >= 0) {
-        const previousPathIndex = pathIndex - 1
-        if (previousPathIndex >= 0) {
-          // Link this cell to the previous cell
-          const previousCell = this.#cells[state.path[previousPathIndex]]
-          flags.add(Cell.FlagsByName[cell.getCoordinates().getDirection(previousCell.getCoordinates())])
+        flags.add(Cell.Flags.Path)
+
+        const nextCellIndex = state.path[pathIndex + 1]
+        if (nextCellIndex !== undefined) {
+          // Link current cell to next cell
+          const nextCell = this.#cells[nextCellIndex]
+          flags.add(Cell.FlagsByName[cell.getCoordinates().getDirection(nextCell.getCoordinates())])
         }
 
         if (pathIndex === 0) {
@@ -213,18 +226,23 @@ export class Grid {
 
           flags.add(Cell.Flags.Last)
         }
-      }
 
-      // Handle cells that are part of a word
-      const word = state.words.find((indexes) => indexes.includes(index))
-      if (word) {
-        flags.add(Cell.Flags.Validated)
+        // Handle cells that are part of a word
+        const word = state.words.find((indexes) => indexes.includes(index))
+        if (word) {
+          flags.add(Cell.Flags.Validated)
 
-        const wordIndex = word.indexOf(index)
-        if (wordIndex === 0) {
-          flags.add(Cell.Flags.WordStart)
-        } else if (wordIndex === word.length - 1) {
-          flags.add(Cell.Flags.WordEnd)
+          const lastWordIndex = word.length - 1
+          // If the starting path index of the word is later in the path than the ending path index of the word, the
+          // word was spelled in reverse
+          const isReversed = state.path.indexOf(word[0]) > state.path.indexOf(word[lastWordIndex])
+          const wordIndex = (isReversed ? Array.from(word).reverse() : word).indexOf(index)
+
+          if (wordIndex === 0) {
+            flags.add(Cell.Flags.WordStart)
+          } else if (wordIndex === lastWordIndex) {
+            flags.add(Cell.Flags.WordEnd)
+          }
         }
       }
 
@@ -241,11 +259,11 @@ export class Grid {
    */
   #validate (indexes) {
     const state = this.#getState()
-    const lastPathIndex = state.path.length - 1
+    const lastCellIndex = state.path[state.path.length - 1]
     const lastSelectionIndex = this.#selection.length - 1
 
-    if (lastPathIndex >= 0) {
-      const last = this.#cells[state.path[lastPathIndex]]
+    if (lastCellIndex !== undefined) {
+      const last = this.#cells[lastCellIndex]
       const neighborIndex = [0, lastSelectionIndex].find((index) => last.isNeighbor(this.#selection[index]))
       if (neighborIndex === undefined) {
         console.debug('Selection does not start or begin as a neighbor of an existing path item, ignoring')
@@ -269,6 +287,12 @@ export class Grid {
       // Word indexes are pushed in the correct order to spell the word
       state.words.push(Grid.getIndexes(this.#selection))
       this.#state.set(state)
+
+      if (lastCellIndex !== undefined) {
+        // When adding to an existing path, also update the previous last cell. This will allow the cell to be linked
+        // to the newly added cells.
+        indexes.push(lastCellIndex)
+      }
     }
   }
 

@@ -65,9 +65,13 @@ export class Coordinates {
   }
 
   static Neighbors = Object.freeze([
-    new Coordinates.Neighbor(Directions.South, new Coordinates(1, 0)),
-    new Coordinates.Neighbor(Directions.West, new Coordinates(0, -1)),
     new Coordinates.Neighbor(Directions.East, new Coordinates(0, 1)),
-    new Coordinates.Neighbor(Directions.North, new Coordinates(-1, 0))
+    new Coordinates.Neighbor(Directions.North, new Coordinates(-1, 0)),
+    new Coordinates.Neighbor(Directions.NorthEast, new Coordinates(-1, 1)),
+    new Coordinates.Neighbor(Directions.NorthWest, new Coordinates(-1, -1)),
+    new Coordinates.Neighbor(Directions.South, new Coordinates(1, 0)),
+    new Coordinates.Neighbor(Directions.SouthEast, new Coordinates(1, 1)),
+    new Coordinates.Neighbor(Directions.SouthWest, new Coordinates(1, -1)),
+    new Coordinates.Neighbor(Directions.West, new Coordinates(0, -1))
   ])
 }
