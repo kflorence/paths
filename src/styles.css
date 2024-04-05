@@ -236,6 +236,7 @@ footer {
   color: black;
 }
 
+.grid .cell-swap,
 .grid .cell-swapped {
   background-color: #B4ADEA;
   color: black;

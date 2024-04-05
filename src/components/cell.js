@@ -115,6 +115,7 @@ export class Cell {
     Last: new Flag('last'),
     Path: new Flag('path'),
     Selected: new Flag('selected'),
+    Swap: new Flag('swap'),
     Swapped: new Flag('swapped'),
     Validated: new Flag('validated'),
     WordEnd: new Flag('word-end'),

@@ -21,8 +21,6 @@ export class Grid {
   #selectionStart
   #size
   #state
-  #swap
-  #swapTimeoutId
   #width
 
   constructor (id, width) {
@@ -38,13 +36,17 @@ export class Grid {
 
     const indexes = []
     for (let index = 0; index < this.#size; index++) {
+      indexes.push(index)
+
       const row = Math.floor(index / this.#width)
       const column = index % this.#width
+      const coordinates = new Coordinates(row, column, this.#width)
       const letter = this.#nextLetter()
       const configuration = new Cell.State(index, letter.character)
+      const cell = new Cell(coordinates, configuration)
+
+      this.#cells.push(cell)
       this.#configuration.push(configuration)
-      this.#cells.push(new Cell(new Coordinates(row, column), configuration))
-      indexes.push(index)
     }
 
     this.#update(indexes)
@@ -85,13 +87,9 @@ export class Grid {
   }
 
   #onPointerUp () {
-    // Cancel any pending swaps
-    clearTimeout(this.#swapTimeoutId)
-
     if (!this.#selectionStart) {
       // User clicked outside the grid area. De-select anything that was selected.
-      Grid.reset(this.#selection)
-      this.#selection = []
+      Grid.reset(this.#selection.splice(0))
       return
     }
 
@@ -100,9 +98,10 @@ export class Grid {
     if (count > 1) {
       // User selected multiple cells before pointerup was fired. Validate the selection.
       this.#validate()
-    } else {
-      if (this.#swap && length === 2) {
-        this.#onSwap(...this.#selection)
+    } else if (length === 2) {
+      const last = this.#selection[length - 1]
+      if (last.getFlags().has(Cell.Flags.Swap)) {
+        this.#swap(...this.#selection.splice(0))
       }
     }
 
@@ -116,91 +115,107 @@ export class Grid {
       return
     }
 
-    if (!this.#selectionStart) {
-      // The first selection event
+    // User is doing a multi-select if multiple onSelect events have been fired before pointerup resets selectionStart.
+    const isMultiSelect = this.#selectionStart !== undefined
+    if (!isMultiSelect) {
+      // The first selection event, assume it's a tap.
       this.#selectionStart = new Grid.SelectionStart(event, this.#selection.length)
-      this.#swapTimeoutId = setTimeout(this.#onSwap.bind(this, cell), 500)
-    } else {
-      // Cannot initiate a swap if multiple cells are selected.
-      clearTimeout(this.#swapTimeoutId)
     }
 
-    if (!this.#swap) {
-      const length = this.#selection.length
-      const lastSelectionIndex = length - 1
-      const isMultiSelect = length - this.#selectionStart.length > 1
+    const flags = [Cell.Flags.Selected]
+    const length = this.#selection.length
+    const lastSelectionIndex = length - 1
 
-      // TODO: also check for already validated cell to prevent path from crossing
-      const selectedIndex = this.#selection.findIndex((selected) => selected.equals(cell))
-      if (selectedIndex >= 0) {
+    const selectedIndex = this.#selection.findIndex((selected) => selected.equals(cell))
+    if (selectedIndex >= 0) {
+      // An already selected cell was selected again.
+      if (length > 1) {
+        // User has multiple cells selected.
         if (selectedIndex === lastSelectionIndex) {
-          // The last selected cell was selected again, validate the selection.
+          // User tapped the last selected cell.
           if (!isMultiSelect) {
-            // Only validate on tap. Multi-select will be validated on pointerup.
+            // Only validate on tap, not multi-select, which will be validated on pointerup.
             this.#validate()
           }
         } else {
-          // Going back to a previously selected cell, remove everything selected after it
+          // User tapped a previous cell. De-select everything after the selected cell.
           Grid.reset(this.#selection.splice(selectedIndex + 1))
         }
 
         return
+      } else if (!isMultiSelect) {
+        // User has re-tapped a single, selected cell.
+        if (cell.getFlags().has(Cell.Flags.Swap, Cell.Flags.Swapped)) {
+          // User tapped a cell marked for swap, or already swapped. De-select it.
+          Grid.reset(this.#selection.splice(0))
+          // Nothing more to do.
+          return
+        } else {
+          flags.push(Cell.Flags.Swap)
+        }
       }
+    }
 
-      const flags = [Cell.Flags.Selected]
-      if (length > 0) {
-        const lastSelectedCell = this.#selection[lastSelectionIndex]
-        if (lastSelectedCell.isNeighbor(cell)) {
-          // Selected cell is a neighbor of the last selected cell, make it part of the path.
-          flags.push(
-            Cell.Flags.Path,
-            Cell.FlagsByName[cell.getCoordinates().getDirection(lastSelectedCell.getCoordinates())]
-          )
+    if (length > 0 && !flags.some((flag) => flag === Cell.Flags.Swap)) {
+      const lastSelectedCell = this.#selection[lastSelectionIndex]
+      if (lastSelectedCell.getFlags().has(Cell.Flags.Swap)) {
+        // Previous cell was marked for swap. Mark the new cell for swap.
+        flags.push(Cell.Flags.Swap)
+      } else {
+        // Not dealing with a swap.
+        const cellCoordinates = cell.getCoordinates()
+        const cellNeighbors = cellCoordinates.getNeighbors()
+        const lastSelectedCellCoordinates = lastSelectedCell.getCoordinates()
+
+        const isNeighbor = cellNeighbors.some((neighbor) => neighbor.coordinates.equals(lastSelectedCellCoordinates))
+        if (isNeighbor) {
+          // Selected cell is a neighbor of the last selected cell.
+          const state = this.#getState()
+          const direction = cellCoordinates.getDirection(lastSelectedCellCoordinates)
+          const occupiedDirections = cellNeighbors
+            .filter((neighbor) => state.path.includes(neighbor.index))
+            .map((neighbor) => neighbor.direction)
+          if (Coordinates.isCrossing(direction, occupiedDirections)) {
+            // Selected path would cross existing path. Selection is invalid.
+            return
+          } else {
+            flags.push(Cell.Flags.Path, Cell.FlagsByName[direction])
+          }
         } else if (isMultiSelect) {
           // Selected cell is not a neighbor, since this is a multi-select, just ignore it.
           return
         } else {
-          // A non-neighbor cell was tapped. De-select anything previously selected before selecting it.
-          Grid.reset(this.#selection)
-          this.#selection = []
+          console.log('got here')
+          // A non-neighbor cell was tapped. De-select anything previously selected.
+          Grid.reset(this.#selection.splice(0))
         }
       }
-
-      cell.update((state) => state.copy({ flags: state.getFlags().add(...flags) }))
     }
 
-    this.#selection.push(cell)
+    cell.update((state) => state.copy({ flags: state.getFlags().add(...flags) }))
+
+    if (selectedIndex < 0) {
+      // Don't allow duplicates, e.g. when the same cell is selected again.
+      this.#selection.push(cell)
+    }
   }
 
-  #onSwap () {
-    const length = this.#selection.length
-    if (length === 1) {
-      const source = this.#selection[0]
-      if (source.getFlags().has(Cell.Flags.Swapped)) {
-        // TODO: unswap / delete
-      } else {
-        this.#swap = true
-        this.#update([source.getIndex()])
-      }
+  #swap (source, target) {
+    const state = this.#getState()
+    const swap = [source.getIndex(), target.getIndex()]
+    const unswap = Array.from(swap).reverse()
+
+    // Check to see if this is an un-swap
+    const unswapIndex = state.swaps.findIndex((swap) => swap.every((value, index) => unswap[index] === value))
+
+    if (unswapIndex < 0) {
+      state.swaps.push(swap)
     } else {
-      const [source, target] = this.#selection
-
-      const state = this.#getState()
-      const swap = [source.getIndex(), target.getIndex()]
-      const unswap = Array.from(swap).reverse()
-      const unswapIndex = state.swaps.findIndex((swap) => swap.every((value, index) => unswap[index] === value))
-
-      if (unswapIndex < 0) {
-        state.swaps.push(swap)
-      } else {
-        state.swaps.splice(unswapIndex, 1)
-      }
-
-      this.#state.set(state)
-      this.#update(swap)
-      this.#selection = []
-      this.#swap = false
+      state.swaps.splice(unswapIndex, 1)
     }
+
+    this.#state.set(state)
+    this.#update(swap)
   }
 
   /**
@@ -216,11 +231,6 @@ export class Grid {
       const cell = this.#cells[index]
       let content = this.#configuration[index].content
       const flags = new Flags()
-
-      // Handle in-progress swap cells
-      if (this.#swap) {
-        flags.add(Cell.Flags.Swapped)
-      }
 
       // Handle swapped cells
       const swap = state.swaps.find((indexes) => indexes.includes(index))
@@ -354,12 +364,12 @@ export class Grid {
     return 4294967296 * (2097151 & h2) + (h1 >>> 0)
   }
 
-  static getWord (cells) {
-    return cells.map((cell) => cell.getContent()).join('')
-  }
-
   static getIndexes (cells) {
     return cells.map((cell) => cell.getIndex())
+  }
+
+  static getWord (cells) {
+    return cells.map((cell) => cell.getContent()).join('')
   }
 
   static reset (cells) {

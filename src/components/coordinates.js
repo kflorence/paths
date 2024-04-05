@@ -19,17 +19,24 @@ export const Directions = Object.freeze({
 
 export class Coordinates {
   id
+  index
 
   #neighbors
+  #width
 
-  constructor (row, column) {
+  constructor (row, column, width) {
     this.id = [row, column].join(',')
     this.row = Number(row)
     this.column = Number(column)
+
+    if (width !== undefined) {
+      this.#width = width
+      this.index = (this.row * width) + this.column
+    }
   }
 
   add (other) {
-    return new Coordinates(this.row + other.row, this.column + other.column)
+    return new Coordinates(this.row + other.row, this.column + other.column, this.#width)
   }
 
   equals (other) {
@@ -57,10 +64,26 @@ export class Coordinates {
       .map((neighbor) => new Coordinates.Neighbor(neighbor.direction, coordinates.add(neighbor.coordinates)))
   }
 
+  static isCrossing (direction, occupiedDirections) {
+    return Coordinates.Crossings[direction]?.every((direction) => occupiedDirections.includes(direction))
+  }
+
+  static Crossings = Object.freeze({
+    [Directions.NorthEast]: [Directions.North, Directions.East],
+    [Directions.NorthWest]: [Directions.North, Directions.West],
+    [Directions.SouthEast]: [Directions.South, Directions.East],
+    [Directions.SouthWest]: [Directions.South, Directions.West]
+  })
+
   static Neighbor = class {
+    coordinates
+    direction
+    index
+
     constructor (direction, coordinates) {
       this.direction = direction
       this.coordinates = coordinates
+      this.index = coordinates.index
     }
   }
 
