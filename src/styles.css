@@ -1,6 +1,6 @@
 html,
 body {
-  background-color: #A7A9A4;
+  background-color: #333;
   color: white;
   font-family: 'Noto Sons Mono', monospace;
   height: 100%;
@@ -15,7 +15,6 @@ body {
 }
 
 header, footer {
-  background-color: #A7A9A4;
   align-items: stretch;
   display: flex;
   font-size: 24px;
@@ -30,35 +29,20 @@ header a {
   text-decoration: none;
 }
 
-header .container {
-  background-color: #333;
-  border-bottom-left-radius: 16px;
-  border-bottom-right-radius: 16px;
-}
-
 header .flex-left {
   flex: content;
 }
 
 footer {
   flex-direction: column;
+  margin-bottom: 1em;
 }
 
-footer .container {
-  background-color: #333;
-  border-top-left-radius: 16px;
-  border-top-right-radius: 16px;
-}
-
-#container {
-  background-color: #333;
-  min-width: 320px;
-  width: 100%;
-}
-
-#grid {
-  background-color: #A7A9A4;
-  padding: 0.5em;
+#expand {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+  padding: 1em;
 }
 
 #home {
@@ -67,13 +51,11 @@ footer .container {
 
 #score {
   color: #FFED65;
-  margin-left: 0.5em;
 }
 
 #status {
-  cursor: pointer;
-  padding: 1em;
-  user-select: none;
+  padding: 1em 0;
+  text-wrap: nowrap;
 }
 
 #title {
@@ -87,6 +69,7 @@ footer .container {
 
 .drawer {
   background: #50514F;
+  border-radius: 16px;
   display: none;
   padding: 1em;
 }
@@ -146,6 +129,8 @@ footer .container {
 /* https://coolors.co/50514f-b4adea-fdfff7-59ffa0-ffed65 */
 
 .grid {
+  background-color: #A7A9A4;
+  border-radius: 16px;
   cursor: pointer;
   display: grid;
   font-size: 2em;
@@ -154,27 +139,12 @@ footer .container {
   user-select: none;
 }
 
-.grid-5 #container {
-  min-width: 320px;
-  max-width: 640px;
-}
-
 .grid-5 .grid {
   grid-template-columns: repeat(5, 1fr);
 }
 
-.grid-7 #container {
-  min-width: 420px;
-  max-width: 896px;
-}
-
 .grid-7 .grid {
   grid-template-columns: repeat(7, 1fr);
-}
-
-.grid-9 #container {
-  min-width: 520px;
-  max-width: 1152px;
 }
 
 .grid-9 .grid {
@@ -186,13 +156,14 @@ footer .container {
   aspect-ratio: 1;
   background-color: #9da19c;
   border-radius: 50%;
+  box-sizing: border-box;
   color: #333;
   display: flex;
   justify-content: center;
-  margin: 0.5em;
-  min-width: 2em;
+  margin: clamp(8px, 2vw, 16px);
   position: relative;
   text-transform: uppercase;
+  width: 64px;
 }
 
 .grid .cell .content {
@@ -205,20 +176,21 @@ footer .container {
   z-index: 2;
 }
 
-.grid .cell-last .content {
+.grid .cell-first .content {
   background-color: rgba(0, 0, 0, 0.2);
 }
 
 /* path is pointing east by default */
 .grid .cell-path:not(.cell-last)::after {
   background-color: inherit;
+  box-sizing: border-box;
   content: '';
   height: 25%;
   left: 50%;
   opacity: 1;
   position: absolute;
   transform-origin: left center;
-  width: calc(100% + 1em);
+  width: 150%;
   z-index: 1;
 }
 
@@ -322,10 +294,6 @@ footer .container {
 .menu a {
   color: white;
   text-decoration: none;
-}
-
-@media (min-width: 426px) {
-
 }
 
 @media (max-width: 1024px) {

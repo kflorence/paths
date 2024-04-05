@@ -2,11 +2,11 @@ import { Grid } from './grid'
 import { EventListeners } from './eventListeners'
 import { State } from './state'
 
+const $expand = document.getElementById('expand')
 const $footer = document.getElementById('footer')
 const $id = document.getElementById('id')
 const $reset = document.getElementById('reset')
 const $score = document.getElementById('score')
-const $status = document.getElementById('status')
 const $swaps = document.getElementById('swaps')
 const $words = document.getElementById('words')
 
@@ -97,10 +97,13 @@ export class Game {
 
 const expanded = State.get(Game.Params.expanded)
 if (expanded || [Game.Params.expanded, Game.Params.state].some((param) => params.has(param))) {
+  $expand.textContent = 'expand_more'
   $footer.classList.add(Game.Params.expanded)
 }
 
-$status.addEventListener('click', () => {
+$expand.addEventListener('click', () => {
   $footer.classList.toggle(Game.Params.expanded)
-  State.set(Game.Params.expanded, $footer.classList.contains(Game.Params.expanded))
+  const expanded = $footer.classList.contains(Game.Params.expanded)
+  $expand.textContent = expanded ? 'expand_more' : 'expand_less'
+  State.set(Game.Params.expanded, expanded)
 })
