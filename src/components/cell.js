@@ -53,6 +53,16 @@ export class Cell {
     return this.getCoordinates().isNeighbor(other.getCoordinates())
   }
 
+  reset () {
+    this.update((state) => {
+      const flags = new Flags()
+      if (state.getFlags().has(Cell.Flags.Swapped)) {
+        flags.add(Cell.Flags.Swapped)
+      }
+      return state.copy({ flags })
+    })
+  }
+
   toString () {
     return `[${Cell.Name}:${this.getCoordinates.toString()}]`
   }

@@ -135,8 +135,10 @@ footer {
   display: grid;
   font-size: 2em;
   margin: auto;
+  position: relative;
   touch-action: none;
   user-select: none;
+  z-index: 0;
 }
 
 .grid-5 .grid {
@@ -173,7 +175,6 @@ footer {
   justify-content: center;
   height: 80%;
   width: 80%;
-  z-index: 2;
 }
 
 .grid .cell-first .content {
@@ -191,7 +192,7 @@ footer {
   position: absolute;
   transform-origin: left center;
   width: 150%;
-  z-index: 1;
+  z-index: -1;
 }
 
 .grid .cell-path.cell-word-end::after {

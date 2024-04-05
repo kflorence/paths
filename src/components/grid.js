@@ -18,9 +18,11 @@ export class Grid {
   #rand
   #seed
   #selection = []
+  #selectionStart
   #size
   #state
-  #tapped = []
+  #swap
+  #swapTimeoutId
   #width
 
   constructor (id, width) {
@@ -73,16 +75,6 @@ export class Grid {
     this.#update(Grid.getIndexes(this.#cells))
   }
 
-  #deselect (cells) {
-    cells.forEach((cell) => cell.update((state) => {
-      const flags = new Flags()
-      if (state.getFlags().has(Cell.Flags.Swapped)) {
-        flags.add(Cell.Flags.Swapped)
-      }
-      return state.copy({ flags })
-    }))
-  }
-
   #getState () {
     return new Grid.State(this.#state.get())
   }
@@ -92,6 +84,31 @@ export class Grid {
     return letters.find((letter) => letter.weight > weight)
   }
 
+  #onPointerUp () {
+    // Cancel any pending swaps
+    clearTimeout(this.#swapTimeoutId)
+
+    if (!this.#selectionStart) {
+      // User clicked outside the grid area. De-select anything that was selected.
+      Grid.reset(this.#selection)
+      this.#selection = []
+      return
+    }
+
+    const length = this.#selection.length
+    const count = length - this.#selectionStart.length
+    if (count > 1) {
+      // User selected multiple cells before pointerup was fired. Validate the selection.
+      this.#validate()
+    } else {
+      if (this.#swap && length === 2) {
+        this.#onSwap(...this.#selection)
+      }
+    }
+
+    this.#selectionStart = undefined
+  }
+
   #onSelect (event) {
     const cell = event.detail.cell
     if (cell.getFlags().has(Cell.Flags.Validated)) {
@@ -99,79 +116,91 @@ export class Grid {
       return
     }
 
-    // TODO: also check for already validated cell to prevent path from crossing
-    const index = this.#selection.findIndex((selected) => selected.equals(cell))
-    if (index > -1) {
-      // Going back to an already selected cell, remove everything selected after it
-      this.#deselect(this.#selection.splice(index + 1))
-      return
+    if (!this.#selectionStart) {
+      // The first selection event
+      this.#selectionStart = new Grid.SelectionStart(event, this.#selection.length)
+      this.#swapTimeoutId = setTimeout(this.#onSwap.bind(this, cell), 500)
+    } else {
+      // Cannot initiate a swap if multiple cells are selected.
+      clearTimeout(this.#swapTimeoutId)
     }
 
-    const flags = [Cell.Flags.Selected]
-    const length = this.#selection.length
-    if (length > 0) {
-      flags.push(Cell.Flags.Path)
-      const previousCell = this.#selection[length - 1]
-      if (previousCell?.isNeighbor(cell)) {
-        flags.push(Cell.FlagsByName[cell.getCoordinates().getDirection(previousCell.getCoordinates())])
+    if (!this.#swap) {
+      const length = this.#selection.length
+      const lastSelectionIndex = length - 1
+      const isMultiSelect = length - this.#selectionStart.length > 1
+
+      // TODO: also check for already validated cell to prevent path from crossing
+      const selectedIndex = this.#selection.findIndex((selected) => selected.equals(cell))
+      if (selectedIndex >= 0) {
+        if (selectedIndex === lastSelectionIndex) {
+          // The last selected cell was selected again, validate the selection.
+          if (!isMultiSelect) {
+            // Only validate on tap. Multi-select will be validated on pointerup.
+            this.#validate()
+          }
+        } else {
+          // Going back to a previously selected cell, remove everything selected after it
+          Grid.reset(this.#selection.splice(selectedIndex + 1))
+        }
+
+        return
       }
-    }
 
-    cell.update((state) => state.copy({ flags: state.getFlags().add(...flags) }))
+      const flags = [Cell.Flags.Selected]
+      if (length > 0) {
+        const lastSelectedCell = this.#selection[lastSelectionIndex]
+        if (lastSelectedCell.isNeighbor(cell)) {
+          // Selected cell is a neighbor of the last selected cell, make it part of the path.
+          flags.push(
+            Cell.Flags.Path,
+            Cell.FlagsByName[cell.getCoordinates().getDirection(lastSelectedCell.getCoordinates())]
+          )
+        } else if (isMultiSelect) {
+          // Selected cell is not a neighbor, since this is a multi-select, just ignore it.
+          return
+        } else {
+          // A non-neighbor cell was tapped. De-select anything previously selected before selecting it.
+          Grid.reset(this.#selection)
+          this.#selection = []
+        }
+      }
+
+      cell.update((state) => state.copy({ flags: state.getFlags().add(...flags) }))
+    }
 
     this.#selection.push(cell)
   }
 
-  #onPointerUp () {
-    const indexes = []
+  #onSwap () {
     const length = this.#selection.length
-    if (length === 0) {
-      // User has not selected a cell. De-select anything that was previously tapped.
-      indexes.push(...Grid.getIndexes(this.#tapped))
-      this.#tapped = []
-    } else if (length === 1) {
-      const tapped = this.#selection[0]
-      if (tapped.getFlags().has(Cell.Flags.Swapped)) {
-        // User has tapped a cell that has already been swapped. Ignore.
-        indexes.push(tapped.getIndex())
-      } else if (this.#tapped.some((existing) => existing.equals(tapped))) {
-        // User has tapped an already tapped cell. De-select it.
-        indexes.push(tapped.getIndex())
-        this.#tapped = []
+    if (length === 1) {
+      const source = this.#selection[0]
+      if (source.getFlags().has(Cell.Flags.Swapped)) {
+        // TODO: unswap / delete
       } else {
-        this.#tapped.push(tapped)
-      }
-
-      if (this.#tapped.length === 2) {
-        // User has tapped two unique cells. Swap them.
-        indexes.push(...Grid.getIndexes(this.#tapped))
-        this.#swap(...this.#tapped)
-        this.#tapped = []
+        this.#swap = true
+        this.#update([source.getIndex()])
       }
     } else {
-      // User has selected multiple cells. Validate them to see if a word has been spelled.
-      indexes.push(...Grid.getIndexes(this.#selection))
-      this.#validate(indexes)
-      this.#tapped = []
+      const [source, target] = this.#selection
+
+      const state = this.#getState()
+      const swap = [source.getIndex(), target.getIndex()]
+      const unswap = Array.from(swap).reverse()
+      const unswapIndex = state.swaps.findIndex((swap) => swap.every((value, index) => unswap[index] === value))
+
+      if (unswapIndex < 0) {
+        state.swaps.push(swap)
+      } else {
+        state.swaps.splice(unswapIndex, 1)
+      }
+
+      this.#state.set(state)
+      this.#update(swap)
+      this.#selection = []
+      this.#swap = false
     }
-
-    this.#update(indexes)
-    this.#selection = []
-  }
-
-  #swap (source, target) {
-    const state = this.#getState()
-    const swap = [source.getIndex(), target.getIndex()]
-    const unswap = Array.from(swap).reverse()
-    const unswapIndex = state.swaps.findIndex((swap) => swap.every((value, index) => unswap[index] === value))
-
-    if (unswapIndex < 0) {
-      state.swaps.push(swap)
-    } else {
-      state.swaps.splice(unswapIndex, 1)
-    }
-
-    this.#state.set(state)
   }
 
   /**
@@ -185,12 +214,12 @@ export class Grid {
 
     indexes.forEach((index) => {
       const cell = this.#cells[index]
-      let content = cell.getContent()
+      let content = this.#configuration[index].content
       const flags = new Flags()
 
-      // Handle tapped cells
-      if (this.#tapped.some((tapped) => tapped.equals(cell))) {
-        flags.add(Cell.Flags.Selected)
+      // Handle in-progress swap cells
+      if (this.#swap) {
+        flags.add(Cell.Flags.Swapped)
       }
 
       // Handle swapped cells
@@ -257,16 +286,23 @@ export class Grid {
   /**
    * Responsible for validating a selection of cells by index to see if the user has spelled a valid word.
    */
-  #validate (indexes) {
-    const state = this.#getState()
-    const lastCellIndex = state.path[state.path.length - 1]
-    const lastSelectionIndex = this.#selection.length - 1
+  #validate () {
+    const selection = Array.from(this.#selection)
+    const indexes = Grid.getIndexes(selection)
 
-    if (lastCellIndex !== undefined) {
-      const last = this.#cells[lastCellIndex]
-      const neighborIndex = [0, lastSelectionIndex].find((index) => last.isNeighbor(this.#selection[index]))
+    // Empty the selection
+    this.#selection = []
+
+    const state = this.#getState()
+    const lastPathItemIndex = state.path[state.path.length - 1]
+    const lastSelectionIndex = selection.length - 1
+
+    if (lastPathItemIndex !== undefined) {
+      const lastCell = this.#cells[lastPathItemIndex]
+      const neighborIndex = [0, lastSelectionIndex].find((index) => lastCell.isNeighbor(selection[index]))
       if (neighborIndex === undefined) {
         console.debug('Selection does not start or begin as a neighbor of an existing path item, ignoring')
+        Grid.reset(selection)
         return
       } else if (neighborIndex === lastSelectionIndex) {
         console.debug('Selection drawn in reverse')
@@ -275,25 +311,27 @@ export class Grid {
       }
     }
 
-    let word = Grid.getWord(this.#selection)
+    let word = Grid.getWord(selection)
     if (!Word.isValid(word)) {
       // Try the selection in reverse
-      word = Grid.getWord(this.#selection.reverse())
+      word = Grid.getWord(selection.reverse())
     }
 
     if (Word.isValid(word)) {
       // Path indexes are pushed in relative distance to the last neighbor
       state.path.push(...indexes)
       // Word indexes are pushed in the correct order to spell the word
-      state.words.push(Grid.getIndexes(this.#selection))
+      state.words.push(Grid.getIndexes(selection))
       this.#state.set(state)
 
-      if (lastCellIndex !== undefined) {
+      if (lastPathItemIndex !== undefined) {
         // When adding to an existing path, also update the previous last cell. This will allow the cell to be linked
         // to the newly added cells.
-        indexes.push(lastCellIndex)
+        indexes.push(lastPathItemIndex)
       }
     }
+
+    this.#update(indexes)
   }
 
   /**
@@ -324,6 +362,10 @@ export class Grid {
     return cells.map((cell) => cell.getIndex())
   }
 
+  static reset (cells) {
+    cells.forEach((cell) => cell.reset())
+  }
+
   /**
    * A seeded pseudo-random number generator.
    * @see https://github.com/bryc/code/blob/master/jshash/PRNGs.md
@@ -347,6 +389,16 @@ export class Grid {
   static DefaultWidth = 5
   static Events = Object.freeze({ Update: getClassName(Grid.Name, 'update') })
   static Widths = Object.freeze([5, 7, 9])
+
+  static SelectionStart = class {
+    event
+    length
+
+    constructor (event, length) {
+      this.event = event
+      this.length = length
+    }
+  }
 
   static State = class {
     path
