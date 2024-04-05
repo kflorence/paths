@@ -58,13 +58,32 @@ footer {
   text-wrap: nowrap;
 }
 
+#swaps .flex-left {
+  flex-basis: fit-content;
+}
+
+#swaps .swap {
+  padding: 0.5em;
+  text-wrap: nowrap;
+}
+
 #title {
   padding: 1em 0 1em 1em;
+}
+
+#words .word {
+  padding: 0.5em;
 }
 
 .container {
   display: flex;
   width: 100%;
+}
+
+.delete {
+  align-items: center;
+  cursor: pointer;
+  padding: 0.5em;
 }
 
 .drawer {
@@ -81,16 +100,12 @@ footer {
 
 .drawer ul {
   color: #d2d3cd;
-  list-style: decimal inside;
+  list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.drawer ul.empty {
-  list-style: none;
-}
-
-.drawer ul.empty:after {
+.drawer ul.empty::after {
   content: '--'
 }
 

@@ -72,6 +72,45 @@ export class Grid {
     return this.#getState().words.map((indexes) => new Word(indexes.map((index) => this.#cells[index])))
   }
 
+  removeSwap (index) {
+    const state = this.#getState()
+
+    // Remove the swap
+    const swap = state.swaps.splice(index, 1)[0]
+    this.#state.set(state)
+
+    // If one of the swapped cells was part of a word, remove the word, too.
+    const wordIndex = state.words.findIndex((indexes) => swap.some((index) => indexes.indexOf(index) >= 0))
+    if (wordIndex >= 0) {
+      this.removeWord(wordIndex)
+    }
+
+    this.#update(swap)
+  }
+
+  removeWord (index) {
+    const state = this.#getState()
+
+    // Remove the word and everything after it
+    const firstRemovedWord = state.words.splice(index)[0]
+    const earliestPathIndex = state.path.findIndex((index) => firstRemovedWord.indexOf(index) >= 0)
+
+    // Remove everything after and including the first matched path index.
+    const indexes = state.path.splice(earliestPathIndex)
+
+    this.#state.set(state)
+
+    const lastPathItemIndex = state.path[state.path.length - 1]
+    if (lastPathItemIndex !== undefined) {
+      // Also update the last path item so the link can be removed.
+      indexes.push(lastPathItemIndex)
+    }
+
+    this.#update(indexes)
+
+    return this.getWords()
+  }
+
   reset () {
     this.#state.set(new Grid.State({ seed: this.#seed }))
     this.#update(Grid.getIndexes(this.#cells))

@@ -32,6 +32,8 @@ export class Game {
 
     this.#eventListeners.add([
       { type: 'click', element: $reset, handler: this.reset },
+      { type: 'click', element: $swaps, handler: this.#deleteSwap },
+      { type: 'click', element: $words, handler: this.#deleteWord },
       { type: Grid.Events.Update, handler: this.update }
     ])
 
@@ -51,6 +53,20 @@ export class Game {
     this.#updateWords(words)
   }
 
+  #deleteSwap (event) {
+    if (event.target.classList.contains('delete')) {
+      this.#grid.removeSwap(event.target.dataset.index)
+      this.update()
+    }
+  }
+
+  #deleteWord (event) {
+    if (event.target.classList.contains('delete')) {
+      const words = this.#grid.removeWord(event.target.dataset.index)
+      this.#updateWords(words)
+    }
+  }
+
   #updateScore (words) {
     $score.textContent = words.reduce((points, word) => points + word.points, 0)
   }
@@ -59,18 +75,38 @@ export class Game {
     const swaps = this.#grid.getSwaps()
 
     $swaps.classList.toggle('empty', swaps.length === 0)
-    $swaps.replaceChildren(...swaps.map((swap) => {
+    $swaps.replaceChildren(...swaps.map((swap, index) => {
       const $element = document.createElement('li')
-      $element.textContent = swap.join(' → ')
+
+      const elements = Game.getContainerElements()
+      $element.append(elements.$container)
+
+      const $swap = document.createElement('span')
+      $swap.classList.add('swap')
+      $swap.textContent = `${index + 1}. ${swap.join(' → ')}`
+      elements.$left.append($swap)
+
+      elements.$right.append(Game.getDeleteElement(index))
+
       return $element
     }))
   }
 
   #updateWords (words) {
     $words.classList.toggle('empty', words.length === 0)
-    $words.replaceChildren(...words.map((word) => {
+    $words.replaceChildren(...words.map((word, index) => {
       const $element = document.createElement('li')
-      $element.textContent = `${word.content} (${word.points})`
+
+      const elements = Game.getContainerElements()
+      $element.append(elements.$container)
+
+      const $word = document.createElement('span')
+      $word.classList.add('word')
+      $word.textContent = `${index + 1}. ${word.content} (${word.points})`
+      elements.$left.append($word)
+
+      elements.$right.append(Game.getDeleteElement(index))
+
       return $element
     }))
   }
@@ -82,6 +118,31 @@ export class Game {
     const month = (date.getMonth() + 1).toString().padStart(2, '0')
     const day = date.getDate().toString().padStart(2, '0')
     return `${year}-${month}-${day}`
+  }
+
+  static getContainerElements () {
+    const $container = document.createElement('div')
+    $container.classList.add('container')
+
+    const $left = document.createElement('div')
+    $left.classList.add('flex-left')
+    $container.append($left)
+
+    const $right = document.createElement('div')
+    $right.classList.add('flex-right')
+    $container.append($right)
+
+    return { $container, $left, $right }
+  }
+
+  static getDeleteElement (index) {
+    const $delete = document.createElement('span')
+    $delete.classList.add('delete', 'material-symbols-outlined')
+    $delete.dataset.index = index.toString()
+    $delete.textContent = 'delete'
+    $delete.title = 'Delete'
+
+    return $delete
   }
 
   static today = Date.parse(Game.defaultId())
