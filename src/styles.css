@@ -1,3 +1,5 @@
+/* https://coolors.co/50514f-b4adea-fdfff7-59ffa0-ffed65 */
+
 html,
 body {
   background-color: #333;
@@ -45,8 +47,184 @@ footer {
   padding: 1em;
 }
 
+#grid {
+  background-color: #A7A9A4;
+  border-radius: 16px 16px 0 0;
+  cursor: pointer;
+  display: grid;
+  font-size: 2em;
+  margin: auto;
+  position: relative;
+  touch-action: none;
+  user-select: none;
+  z-index: 0;
+}
+
+#grid[data-width="5"] {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+#grid[data-width="7"] {
+  grid-template-columns: repeat(7, 1fr);
+}
+
+#grid[data-width="9"] {
+  grid-template-columns: repeat(9, 1fr);
+}
+
+#grid .cell {
+  align-items: center;
+  aspect-ratio: 1;
+  background-color: #9da19c;
+  border-radius: 50%;
+  box-sizing: border-box;
+  color: #333;
+  display: flex;
+  justify-content: center;
+  margin: clamp(8px, 2vw, 16px);
+  position: relative;
+  text-transform: uppercase;
+  width: 64px;
+}
+
+#grid .cell:active {
+  transform: scale(0.9);
+}
+
+#grid .cell .content {
+  align-items: center;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  height: 80%;
+  width: 80%;
+}
+
+#grid .cell-first .content {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+/* path is pointing east by default */
+#grid .cell-path:not(.cell-last)::after {
+  background-color: inherit;
+  box-sizing: border-box;
+  content: '';
+  height: 25%;
+  left: 50%;
+  opacity: 1;
+  position: absolute;
+  transform-origin: left center;
+  width: 150%;
+  z-index: -1;
+}
+
+#grid .cell-path.cell-word-end::after {
+  opacity: 0.5;
+}
+
+#grid .cell-path.cell-direction-north::after {
+  transform: rotate(-90deg);
+}
+
+#grid .cell-path.cell-direction-north-east::after {
+  transform: rotate(-45deg);
+  width: 200%;
+}
+
+#grid .cell-path.cell-direction-north-west::after {
+  transform: rotate(-135deg);
+  width: 200%;
+}
+
+#grid .cell-path.cell-direction-south::after {
+  transform: rotate(90deg);
+}
+
+#grid .cell-path.cell-direction-south-east::after {
+  transform: rotate(45deg);
+  width: 200%;
+}
+
+#grid .cell-path.cell-direction-south-west::after {
+  transform: rotate(135deg);
+  width: 200%;
+}
+
+#grid .cell-path.cell-direction-west::after {
+  transform: rotate(-180deg);
+}
+
+#grid .cell-selected {
+  background-color: #FDFFF7;
+  color: black;
+}
+
+#grid .cell-swap,
+#grid .cell-swapped {
+  background-color: #B4ADEA;
+  color: black;
+}
+
+#grid .cell-swapped.cell-selected {
+  background-color: color-mix(in oklab, #B4ADEA, #FDFFF7)
+}
+
+#grid .cell-swapped.cell-validated {
+  background-color: color-mix(in oklab, #B4ADEA, #59FFA0)
+}
+
+#grid .cell-validated {
+  background-color: #59FFA0;
+}
+
+#grid .cell-word-end::before {
+  opacity: 0.5;
+}
+
 #home {
   color: #59FFA0;
+}
+
+#selection {
+  background: #50514F;
+  border-radius: 0 0 16px 16px;
+  color: #9da19c;
+  font-size: 2em;
+  margin: 0;
+  padding: 0.5em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+#selection span {
+  padding-right: 0.5em;
+}
+
+#selection span:last-child {
+  padding-right: 0;
+}
+
+#selection .points {
+  color: #FFED65;
+}
+
+#selection .points::before {
+  color: #9da19c;
+  content: '('
+}
+
+#selection .points::after {
+  color: #9da19c;
+  content: ')'
+}
+
+#selection .valid {
+  color: #59FFA0;
+}
+
+#selection:empty::before {
+  content: '...';
+  display: inline-block;
 }
 
 #score {
@@ -73,6 +251,7 @@ footer {
 
 #words .word {
   padding: 0.5em;
+  text-transform: uppercase;
 }
 
 .container {
@@ -105,8 +284,9 @@ footer {
   padding: 0;
 }
 
-.drawer ul.empty::after {
-  content: '--'
+.drawer ul:empty::after {
+  content: 'N/A';
+  display: inline-block;
 }
 
 .drawer .section {
@@ -139,138 +319,6 @@ footer {
 
 .flex-right {
   justify-content: flex-end;
-}
-
-/* https://coolors.co/50514f-b4adea-fdfff7-59ffa0-ffed65 */
-
-.grid {
-  background-color: #A7A9A4;
-  border-radius: 16px;
-  cursor: pointer;
-  display: grid;
-  font-size: 2em;
-  margin: auto;
-  position: relative;
-  touch-action: none;
-  user-select: none;
-  z-index: 0;
-}
-
-.grid-5 .grid {
-  grid-template-columns: repeat(5, 1fr);
-}
-
-.grid-7 .grid {
-  grid-template-columns: repeat(7, 1fr);
-}
-
-.grid-9 .grid {
-  grid-template-columns: repeat(9, 1fr);
-}
-
-.grid .cell {
-  align-items: center;
-  aspect-ratio: 1;
-  background-color: #9da19c;
-  border-radius: 50%;
-  box-sizing: border-box;
-  color: #333;
-  display: flex;
-  justify-content: center;
-  margin: clamp(8px, 2vw, 16px);
-  position: relative;
-  text-transform: uppercase;
-  width: 64px;
-}
-
-.grid .cell .content {
-  align-items: center;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  height: 80%;
-  width: 80%;
-}
-
-.grid .cell-first .content {
-  background-color: rgba(0, 0, 0, 0.2);
-}
-
-/* path is pointing east by default */
-.grid .cell-path:not(.cell-last)::after {
-  background-color: inherit;
-  box-sizing: border-box;
-  content: '';
-  height: 25%;
-  left: 50%;
-  opacity: 1;
-  position: absolute;
-  transform-origin: left center;
-  width: 150%;
-  z-index: -1;
-}
-
-.grid .cell-path.cell-word-end::after {
-  opacity: 0.5;
-}
-
-.grid .cell-path.cell-direction-north::after {
-  transform: rotate(-90deg);
-}
-
-.grid .cell-path.cell-direction-north-east::after {
-  transform: rotate(-45deg);
-  width: 200%;
-}
-
-.grid .cell-path.cell-direction-north-west::after {
-  transform: rotate(-135deg);
-  width: 200%;
-}
-
-.grid .cell-path.cell-direction-south::after {
-  transform: rotate(90deg);
-}
-
-.grid .cell-path.cell-direction-south-east::after {
-  transform: rotate(45deg);
-  width: 200%;
-}
-
-.grid .cell-path.cell-direction-south-west::after {
-  transform: rotate(135deg);
-  width: 200%;
-}
-
-.grid .cell-path.cell-direction-west::after {
-  transform: rotate(-180deg);
-}
-
-.grid .cell-selected {
-  background-color: #FDFFF7;
-  color: black;
-}
-
-.grid .cell-swap,
-.grid .cell-swapped {
-  background-color: #B4ADEA;
-  color: black;
-}
-
-.grid .cell-swapped.cell-selected {
-  background-color: color-mix(in oklab, #B4ADEA, #FDFFF7)
-}
-
-.grid .cell-swapped.cell-validated {
-  background-color: color-mix(in oklab, #B4ADEA, #59FFA0)
-}
-
-.grid .cell-validated {
-  background-color: #59FFA0;
-}
-
-.grid .cell-word-end::before {
-  opacity: 0.5;
 }
 
 /* https://developers.google.com/fonts/docs/material_icons */

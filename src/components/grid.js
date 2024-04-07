@@ -31,8 +31,7 @@ export class Grid {
     this.#rand = Grid.splitmix32(this.#seed)
     this.#state = new State(new Grid.State({ seed: this.#seed }), this.#seed)
 
-    document.body.className = `grid-${this.#width}`
-    $grid.classList.add(Grid.ClassNames.Grid)
+    $grid.dataset.width = this.#width
 
     const indexes = []
     for (let index = 0; index < this.#size; index++) {
@@ -116,6 +115,12 @@ export class Grid {
     this.#update(Grid.getIndexes(this.#cells))
   }
 
+  #deselect (selection) {
+    selection.forEach((cell) => cell.reset())
+    const detail = { selection: Array.from(this.#selection) }
+    document.dispatchEvent(new CustomEvent(Grid.Events.Update, { detail }))
+  }
+
   #getState () {
     return new Grid.State(this.#state.get())
   }
@@ -128,7 +133,7 @@ export class Grid {
   #onPointerUp () {
     if (!this.#selectionStart) {
       // User clicked outside the grid area. De-select anything that was selected.
-      Grid.reset(this.#selection.splice(0))
+      this.#deselect(this.#selection.splice(0))
       return
     }
 
@@ -178,7 +183,7 @@ export class Grid {
           }
         } else {
           // User tapped a previous cell. De-select everything after the selected cell.
-          Grid.reset(this.#selection.splice(selectedIndex + 1))
+          this.#deselect(this.#selection.splice(selectedIndex + 1))
         }
 
         return
@@ -186,7 +191,7 @@ export class Grid {
         // User has re-tapped a single, selected cell.
         if (cell.getFlags().has(Cell.Flags.Swap, Cell.Flags.Swapped)) {
           // User tapped a cell marked for swap, or already swapped. De-select it.
-          Grid.reset(this.#selection.splice(0))
+          this.#deselect(this.#selection.splice(0))
           // Nothing more to do.
           return
         } else {
@@ -224,9 +229,8 @@ export class Grid {
           // Selected cell is not a neighbor, since this is a multi-select, just ignore it.
           return
         } else {
-          console.log('got here')
           // A non-neighbor cell was tapped. De-select anything previously selected.
-          Grid.reset(this.#selection.splice(0))
+          this.#deselect(this.#selection.splice(0))
         }
       }
     }
@@ -236,6 +240,8 @@ export class Grid {
     if (selectedIndex < 0) {
       // Don't allow duplicates, e.g. when the same cell is selected again.
       this.#selection.push(cell)
+      const detail = { selection: Array.from(this.#selection) }
+      document.dispatchEvent(new CustomEvent(Grid.Events.Update, { detail }))
     }
   }
 
@@ -329,7 +335,8 @@ export class Grid {
 
     this.#pointerIndex = lastPathIndex
 
-    document.dispatchEvent(new CustomEvent(Grid.Events.Update))
+    const detail = { words: this.getWords() }
+    document.dispatchEvent(new CustomEvent(Grid.Events.Update, { detail }))
   }
 
   /**
@@ -351,7 +358,7 @@ export class Grid {
       const neighborIndex = [0, lastSelectionIndex].find((index) => lastCell.isNeighbor(selection[index]))
       if (neighborIndex === undefined) {
         console.debug('Selection does not start or begin as a neighbor of an existing path item, ignoring')
-        Grid.reset(selection)
+        this.#deselect(selection)
         return
       } else if (neighborIndex === lastSelectionIndex) {
         console.debug('Selection drawn in reverse')
@@ -360,13 +367,13 @@ export class Grid {
       }
     }
 
-    let word = Grid.getWord(selection)
-    if (!Word.isValid(word)) {
+    let content = Grid.getContent(selection)
+    if (!Word.isValid(content)) {
       // Try the selection in reverse
-      word = Grid.getWord(selection.reverse())
+      content = Grid.getContent(selection.reverse())
     }
 
-    if (Word.isValid(word)) {
+    if (Word.isValid(content)) {
       // Path indexes are pushed in relative distance to the last neighbor
       state.path.push(...indexes)
       // Word indexes are pushed in the correct order to spell the word
@@ -407,12 +414,8 @@ export class Grid {
     return cells.map((cell) => cell.getIndex())
   }
 
-  static getWord (cells) {
+  static getContent (cells) {
     return cells.map((cell) => cell.getContent()).join('')
-  }
-
-  static reset (cells) {
-    cells.forEach((cell) => cell.reset())
   }
 
   /**
@@ -434,7 +437,7 @@ export class Grid {
   }
 
   static Name = 'grid'
-  static ClassNames = Object.freeze({ Grid: Grid.Name })
+  static ClassNames = Object.freeze({ Valid: 'valid' })
   static DefaultWidth = 5
   static Events = Object.freeze({ Update: getClassName(Grid.Name, 'update') })
   static Widths = Object.freeze([5, 7, 9])

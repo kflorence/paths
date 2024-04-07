@@ -22,6 +22,9 @@ export class Cell {
       { type: 'pointerenter', handler: this.#onSelect }
     ])
 
+    this.#$content.className = 'content'
+    this.#$element.append(this.#$content)
+
     this.update()
   }
 
@@ -85,9 +88,7 @@ export class Cell {
     const activeFlags = Object.values(Cell.Flags).filter((flag) => flags.has(flag))
     activeFlags.forEach((flag) => this.#$element.classList.add(getClassName(Cell.Name, flag.name)))
 
-    this.#$content.className = 'content'
     this.#$content.textContent = this.#state.content
-    this.#$element.replaceChildren(this.#$content)
 
     return this.#state
   }

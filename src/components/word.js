@@ -31,6 +31,6 @@ export class Word {
   }
 
   static isValid (word) {
-    return words.includes(word)
+    return word.length > 2 && words.includes(word)
   }
 }

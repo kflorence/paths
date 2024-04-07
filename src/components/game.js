@@ -1,12 +1,14 @@
 import { Grid } from './grid'
 import { EventListeners } from './eventListeners'
 import { State } from './state'
+import { Word } from './word'
 
 const $expand = document.getElementById('expand')
 const $footer = document.getElementById('footer')
 const $id = document.getElementById('id')
 const $reset = document.getElementById('reset')
 const $score = document.getElementById('score')
+const $selection = document.getElementById('selection')
 const $swaps = document.getElementById('swaps')
 const $words = document.getElementById('words')
 
@@ -45,12 +47,17 @@ export class Game {
     this.update()
   }
 
-  update () {
-    const words = this.#grid.getWords()
+  update (event) {
+    const detail = event?.detail ?? {}
 
-    this.#updateScore(words)
+    const words = detail.words ?? []
+    if (words.length) {
+      this.#updateScore(words)
+      this.#updateWords(words)
+    }
+
     this.#updateSwaps()
-    this.#updateWords(words)
+    this.#updateSelection(detail.selection ?? [])
   }
 
   #deleteSwap (event) {
@@ -69,6 +76,39 @@ export class Game {
 
   #updateScore (words) {
     $score.textContent = words.reduce((points, word) => points + word.points, 0)
+  }
+
+  #updateSelection (selection) {
+    $selection.replaceChildren()
+    $selection.classList.remove(Grid.ClassNames.Valid)
+
+    if (!selection.length) {
+      return
+    }
+
+    const $content = document.createElement('span')
+    $content.textContent = Grid.getContent(selection)
+
+    const children = [$content]
+    if (Word.isValid($content.textContent)) {
+      $content.classList.add(Grid.ClassNames.Valid)
+    } else {
+      const content = Grid.getContent(selection.reverse())
+      if (Word.isValid(content)) {
+        $content.classList.add(Grid.ClassNames.Valid)
+        $content.textContent = content
+      }
+    }
+
+    if ($content.classList.contains(Grid.ClassNames.Valid)) {
+      const word = new Word(selection)
+      const $points = document.createElement('span')
+      $points.classList.add('points')
+      $points.textContent = word.points
+      children.push($points)
+    }
+
+    $selection.replaceChildren(...children)
   }
 
   #updateSwaps () {
