@@ -59,9 +59,16 @@ export class Cell {
   reset () {
     this.update((state) => {
       const flags = new Flags()
-      if (state.getFlags().has(Cell.Flags.Swapped)) {
-        flags.add(Cell.Flags.Swapped)
-      }
+      const existingFlags = state.getFlags()
+
+
+      Cell.StickyFlags.forEach((flag) => {
+        console.log(flag, existingFlags.has(flag))
+        if (existingFlags.has(flag)) {
+          flags.add(flag)
+        }
+      })
+
       return state.copy({ flags })
     })
   }
@@ -104,6 +111,7 @@ export class Cell {
   static Events = Object.freeze({ Select: 'cell-select' })
 
   static Flags = Object.freeze({
+    Active: new Flag('active'),
     DirectionEast: new Flag(Directions.East),
     DirectionNorth: new Flag(Directions.North),
     DirectionNorthEast: new Flag(Directions.NorthEast),
@@ -124,6 +132,8 @@ export class Cell {
   })
 
   static FlagsByName = Object.fromEntries(Object.values(Cell.Flags).map((flag) => [flag.name, flag]))
+
+  static StickyFlags = Object.freeze([Cell.Flags.Active, Cell.Flags.Swapped])
 
   static Name = 'cell'
 

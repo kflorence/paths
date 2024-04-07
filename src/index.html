@@ -19,7 +19,7 @@
     <header>
       <div class="flex-left">
         <div id="title">
-          <a id="home" title="Home" href="/">Path</a>#<a id="id" title="ID"></a>
+          <a id="home" title="Home" href="/">Path</a>#<a id="path" title="Path"></a>
         </div>
       </div>
       <div class="flex-right">
@@ -48,12 +48,31 @@
       </div>
       <div class="drawer">
         <div class="section">
+          <h3>Statistics</h3>
+          <ul id="statistics"></ul>
+        </div>
+        <div class="section">
           <h3>Words Spelled</h3>
           <ul id="words"></ul>
         </div>
         <div class="section">
           <h3>Letters Swapped</h3>
           <ul id="swaps"></ul>
+        </div>
+        <div class="section">
+          <h3>Settings</h3>
+          <ul>
+            <li class="container">
+              <span class="flex-left">Grid Size</span>
+              <label>
+                <select id="width">
+                  <option value="5">5x5</option>
+                  <option value="7">7x7</option>
+                  <option value="9">9x9</option>
+                </select>
+              </label>
+            </li>
+          </ul>
         </div>
       </div>
     </footer>

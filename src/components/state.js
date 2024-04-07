@@ -1,63 +1,68 @@
-import { Game } from './game'
-
 const localStorage = window.localStorage
 const location = window.location
 const params = new URLSearchParams(location.search)
 
 export class State {
   key
+
+  #ephemeralParamKeys
   #value
 
-  constructor (value, key) {
+  constructor (key, value, paramKeys = [], ephemeralParamKeys = []) {
     this.key = key
+
+    this.#ephemeralParamKeys = ephemeralParamKeys
     this.#value = structuredClone(value)
 
-    this.load()
-  }
-
-  get () {
-    return structuredClone(this.#value)
-  }
-
-  load () {
-    if (this.key === undefined) {
-      return
+    if (key !== undefined) {
+      paramKeys.unshift(key)
     }
 
-    const cache = params.get(Game.Params.state) ?? localStorage.getItem(this.key)
-    if (cache) {
-      console.debug('Loading state from cache. seed:', this.key, cache)
-      try {
-        const state = JSON.parse(cache)
-        if (state.seed === this.key) {
-          this.set(state)
-        } else {
-          console.warn('Ignoring cached state due to seed mismatch. ours:', this.key, 'theirs:', state.seed)
+    paramKeys.forEach((key) => {
+      const isStateKey = key === this.key
+      const value = isStateKey ? localStorage.getItem(key) : params.get(key)
+      if (value) {
+        console.debug(`Found cache for key: ${key}`)
+        console.debug(value)
+        try {
+          if (isStateKey) {
+            this.#value = JSON.parse(value)
+          } else {
+            this.set(key, value)
+          }
+        } catch (e) {
+          console.error(`Could not set state for key: ${key}`, e.message)
         }
-      } catch (e) {
-        console.error('Could not set state from localStorage', this.key, e.message)
       }
-    }
+    })
   }
 
-  set (state) {
-    this.#value = structuredClone(state)
-    if (this.key !== undefined && !params.has(Game.Params.state)) {
-      // Don't overwrite local state with cached state loaded from URL
+  get (key) {
+    return structuredClone(key === undefined ? this.#value : this.#value[key])
+  }
+
+  set (key, state) {
+    if (state === undefined) {
+      state = key
+      key = undefined
+    }
+
+    state = structuredClone(state)
+    if (key === undefined || key === this.key) {
+      this.#value = state
+    } else {
+      this.#value[key] = state
+    }
+
+    if (!this.#ephemeralParamKeys.includes(key) || !params.get(key)) {
+      // Don't update local storage when updating ephemeral param keys that are present in the URL
       localStorage.setItem(this.key, JSON.stringify(this.#value))
     }
+
     return this.get()
   }
 
   update (f) {
     return this.set(f(this.get()))
-  }
-
-  static get (key) {
-    return JSON.parse(localStorage.getItem(key))
-  }
-
-  static set (key, value) {
-    localStorage.setItem(key, JSON.stringify(value))
   }
 }

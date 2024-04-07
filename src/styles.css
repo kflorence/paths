@@ -5,10 +5,8 @@ body {
   background-color: #333;
   color: white;
   font-family: 'Noto Sons Mono', monospace;
-  height: 100%;
   margin: 0;
   padding: 0;
-  width: 100%;
 }
 
 body {
@@ -85,10 +83,6 @@ footer {
   position: relative;
   text-transform: uppercase;
   width: 64px;
-}
-
-#grid .cell:active {
-  transform: scale(0.9);
 }
 
 #grid .cell .content {
@@ -241,7 +235,7 @@ footer {
 }
 
 #swaps .swap {
-  padding: 0.5em;
+  padding: 0.5em 0.5em 0.5em 0;
   text-wrap: nowrap;
 }
 
@@ -250,7 +244,7 @@ footer {
 }
 
 #words .word {
-  padding: 0.5em;
+  padding: 0.5em 0.5em 0.5em 0;
   text-transform: uppercase;
 }
 
@@ -280,7 +274,7 @@ footer {
 .drawer ul {
   color: #d2d3cd;
   list-style: none;
-  margin: 0;
+  margin: 0 0 0 0.5em;
   padding: 0;
 }
 

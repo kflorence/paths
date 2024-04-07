@@ -10,6 +10,7 @@ import { letters } from './letter'
 const $grid = document.getElementById('grid')
 
 export class Grid {
+  #active
   #cells = []
   #configuration = []
   #eventListeners = new EventListeners({ context: this, element: $grid })
@@ -24,12 +25,14 @@ export class Grid {
   #width
 
   constructor (id, width) {
-    this.#id = id
-    this.#width = Grid.Widths.includes(Number(width)) ? width : Grid.DefaultWidth
+    const state = new Grid.State({ id, width })
+
+    this.#id = state.id
+    this.#width = state.width
     this.#size = this.#width * this.#width
-    this.#seed = Grid.cyrb53([this.#id, this.#width].join(','))
+    this.#seed = state.getSeed()
     this.#rand = Grid.splitmix32(this.#seed)
-    this.#state = new State(new Grid.State({ seed: this.#seed }), this.#seed)
+    this.#state = new State(Grid.Params.Grid, { [this.#seed]: state }, [this.#seed], [this.#seed])
 
     $grid.dataset.width = this.#width
 
@@ -76,7 +79,7 @@ export class Grid {
 
     // Remove the swap
     const swap = state.swaps.splice(index, 1)[0]
-    this.#state.set(state)
+    this.#setState(state)
 
     // If one of the swapped cells was part of a word, remove the word, too.
     const wordIndex = state.words.findIndex((indexes) => swap.some((index) => indexes.indexOf(index) >= 0))
@@ -97,7 +100,7 @@ export class Grid {
     // Remove everything after and including the first matched path index.
     const indexes = state.path.splice(earliestPathIndex)
 
-    this.#state.set(state)
+    this.#setState(state)
 
     const lastPathItemIndex = state.path[state.path.length - 1]
     if (lastPathItemIndex !== undefined) {
@@ -111,7 +114,7 @@ export class Grid {
   }
 
   reset () {
-    this.#state.set(new Grid.State({ seed: this.#seed }))
+    this.#setState(new Grid.State({ id: this.#id, width: this.#width }))
     this.#update(Grid.getIndexes(this.#cells))
   }
 
@@ -122,7 +125,7 @@ export class Grid {
   }
 
   #getState () {
-    return new Grid.State(this.#state.get())
+    return new Grid.State(this.#state.get(this.#seed))
   }
 
   #nextLetter () {
@@ -131,6 +134,11 @@ export class Grid {
   }
 
   #onPointerUp () {
+    if (this.#active) {
+      this.#active.update((state) => state.copy({ flags: state.getFlags().remove(Cell.Flags.Active) }))
+      this.#active = undefined
+    }
+
     if (!this.#selectionStart) {
       // User clicked outside the grid area. De-select anything that was selected.
       this.#deselect(this.#selection.splice(0))
@@ -159,6 +167,9 @@ export class Grid {
       return
     }
 
+    const flags = [Cell.Flags.Active]
+    this.#active = cell
+
     // User is doing a multi-select if multiple onSelect events have been fired before pointerup resets selectionStart.
     const isMultiSelect = this.#selectionStart !== undefined
     if (!isMultiSelect) {
@@ -166,16 +177,12 @@ export class Grid {
       this.#selectionStart = new Grid.SelectionStart(event, this.#selection.length)
     }
 
-    const flags = [Cell.Flags.Selected]
-    const length = this.#selection.length
-    const lastSelectionIndex = length - 1
-
     const selectedIndex = this.#selection.findIndex((selected) => selected.equals(cell))
     if (selectedIndex >= 0) {
       // An already selected cell was selected again.
-      if (length > 1) {
+      if (this.#selection.length > 1) {
         // User has multiple cells selected.
-        if (selectedIndex === lastSelectionIndex) {
+        if (selectedIndex === this.#selection.length - 1) {
           // User tapped the last selected cell.
           if (!isMultiSelect) {
             // Only validate on tap, not multi-select, which will be validated on pointerup.
@@ -185,23 +192,19 @@ export class Grid {
           // User tapped a previous cell. De-select everything after the selected cell.
           this.#deselect(this.#selection.splice(selectedIndex + 1))
         }
-
-        return
       } else if (!isMultiSelect) {
         // User has re-tapped a single, selected cell.
         if (cell.getFlags().has(Cell.Flags.Swap, Cell.Flags.Swapped)) {
           // User tapped a cell marked for swap, or already swapped. De-select it.
           this.#deselect(this.#selection.splice(0))
-          // Nothing more to do.
-          return
         } else {
           flags.push(Cell.Flags.Swap)
         }
       }
     }
 
-    if (length > 0 && !flags.some((flag) => flag === Cell.Flags.Swap)) {
-      const lastSelectedCell = this.#selection[lastSelectionIndex]
+    if (this.#selection.length > 0 && !flags.some((flag) => flag === Cell.Flags.Swap)) {
+      const lastSelectedCell = this.#selection[this.#selection.length - 1]
       if (lastSelectedCell.getFlags().has(Cell.Flags.Swap)) {
         // Previous cell was marked for swap. Mark the new cell for swap.
         flags.push(Cell.Flags.Swap)
@@ -235,14 +238,20 @@ export class Grid {
       }
     }
 
-    cell.update((state) => state.copy({ flags: state.getFlags().add(...flags) }))
-
     if (selectedIndex < 0) {
+      flags.push(Cell.Flags.Selected)
+
       // Don't allow duplicates, e.g. when the same cell is selected again.
       this.#selection.push(cell)
       const detail = { selection: Array.from(this.#selection) }
       document.dispatchEvent(new CustomEvent(Grid.Events.Update, { detail }))
     }
+
+    cell.update((state) => state.copy({ flags: state.getFlags().add(...flags) }))
+  }
+
+  #setState (state) {
+    this.#state.set(this.#seed, state)
   }
 
   #swap (source, target) {
@@ -259,7 +268,7 @@ export class Grid {
       state.swaps.splice(unswapIndex, 1)
     }
 
-    this.#state.set(state)
+    this.#setState(state)
     this.#update(swap)
   }
 
@@ -335,7 +344,7 @@ export class Grid {
 
     this.#pointerIndex = lastPathIndex
 
-    const detail = { words: this.getWords() }
+    const detail = { swaps: this.getSwaps(), words: this.getWords() }
     document.dispatchEvent(new CustomEvent(Grid.Events.Update, { detail }))
   }
 
@@ -378,7 +387,7 @@ export class Grid {
       state.path.push(...indexes)
       // Word indexes are pushed in the correct order to spell the word
       state.words.push(Grid.getIndexes(selection))
-      this.#state.set(state)
+      this.#setState(state)
 
       if (lastPathItemIndex !== undefined) {
         // When adding to an existing path, also update the previous last cell. This will allow the cell to be linked
@@ -437,9 +446,10 @@ export class Grid {
   }
 
   static Name = 'grid'
-  static ClassNames = Object.freeze({ Valid: 'valid' })
+  static ClassNames = Object.freeze({ Active: 'active' })
   static DefaultWidth = 5
   static Events = Object.freeze({ Update: getClassName(Grid.Name, 'update') })
+  static Params = Object.freeze({ Grid: Grid.Name })
   static Widths = Object.freeze([5, 7, 9])
 
   static SelectionStart = class {
@@ -453,16 +463,22 @@ export class Grid {
   }
 
   static State = class {
+    id
     path
-    seed
     swaps
+    width
     words
 
     constructor (state) {
+      this.id = state.id
       this.path = state.path ?? []
-      this.seed = state.seed
       this.swaps = state.swaps ?? []
+      this.width = Grid.Widths.includes(Number(state.width)) ? state.width : Grid.DefaultWidth
       this.words = state.words ?? []
+    }
+
+    getSeed () {
+      return Grid.cyrb53([this.id, this.width].join(','))
     }
   }
 }

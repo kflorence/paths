@@ -5,41 +5,69 @@ import { Word } from './word'
 
 const $expand = document.getElementById('expand')
 const $footer = document.getElementById('footer')
-const $id = document.getElementById('id')
+const $new = document.getElementById('new')
+const $path = document.getElementById('path')
 const $reset = document.getElementById('reset')
 const $score = document.getElementById('score')
 const $selection = document.getElementById('selection')
 const $swaps = document.getElementById('swaps')
 const $words = document.getElementById('words')
 
+const crypto = window.crypto
 const location = window.location
 const params = new URLSearchParams(location.search)
 
 export class Game {
   #eventListeners = new EventListeners({ context: this })
   #grid
+  #state
 
   constructor () {
-    let id = params.get(Game.Params.id) ?? Game.defaultId()
-    const date = Date.parse(id)
+    let path = params.get(Game.Params.Path) ?? Game.defaultId()
+    const date = Date.parse(path)
     if (!isNaN(date) && date > Game.today) {
-      console.debug(`Defaulting to current day puzzle given ID in the future: ${id}`)
-      id = Game.defaultId()
+      console.debug(`Defaulting to current day puzzle given path in the future: ${path}`)
+      path = Game.defaultId()
     }
 
-    this.#grid = new Grid(id, params.get(Game.Params.width))
+    $new.href = `?${Game.Params.Path}=${crypto.randomUUID().split('-')[0]}`
+    $path.href = `?${Game.Params.Path}=${path}`
+    $path.textContent = path
 
-    $id.href = `?id=${id}`
-    $id.textContent = id
+    this.#state = new State(Game.Params.Game, { path }, [
+      Game.Params.Expand,
+      Game.Params.Path,
+      Game.Params.Width
+    ])
+
+    const state = new Game.State(this.#state.get())
+
+    this.#grid = new Grid(state.path, state.width)
+
+    if (state.expand) {
+      $expand.textContent = 'expand_less'
+      $footer.classList.add(Game.ClassNames.Expanded)
+    }
+
+    this.#state.set(state)
 
     this.#eventListeners.add([
+      { type: 'click', element: $expand, handler: this.expand },
       { type: 'click', element: $reset, handler: this.reset },
       { type: 'click', element: $swaps, handler: this.#deleteSwap },
       { type: 'click', element: $words, handler: this.#deleteWord },
       { type: Grid.Events.Update, handler: this.update }
     ])
 
-    this.update()
+    const detail = { swaps: this.#grid.getSwaps(), words: this.#grid.getWords() }
+    this.update({ detail })
+  }
+
+  expand () {
+    const expanded = !this.#state.get(Game.Params.Expand)
+    $footer.classList.toggle(Game.ClassNames.Expanded, expanded)
+    $expand.textContent = expanded ? 'expand_less' : 'expand_more'
+    this.#state.set(Game.Params.Expand, expanded)
   }
 
   reset () {
@@ -56,7 +84,11 @@ export class Game {
       this.#updateWords(words)
     }
 
-    this.#updateSwaps()
+    const swaps = detail.swaps ?? []
+    if (swaps.length) {
+      this.#updateSwaps(swaps)
+    }
+
     this.#updateSelection(detail.selection ?? [])
   }
 
@@ -80,7 +112,7 @@ export class Game {
 
   #updateSelection (selection) {
     $selection.replaceChildren()
-    $selection.classList.remove(Grid.ClassNames.Valid)
+    $selection.classList.remove(Game.ClassNames.Valid)
 
     if (!selection.length) {
       return
@@ -91,19 +123,19 @@ export class Game {
 
     const children = [$content]
     if (Word.isValid($content.textContent)) {
-      $content.classList.add(Grid.ClassNames.Valid)
+      $content.classList.add(Game.ClassNames.Valid)
     } else {
       const content = Grid.getContent(selection.reverse())
       if (Word.isValid(content)) {
-        $content.classList.add(Grid.ClassNames.Valid)
+        $content.classList.add(Game.ClassNames.Valid)
         $content.textContent = content
       }
     }
 
-    if ($content.classList.contains(Grid.ClassNames.Valid)) {
+    if ($content.classList.contains(Game.ClassNames.Valid)) {
       const word = new Word(selection)
       const $points = document.createElement('span')
-      $points.classList.add('points')
+      $points.classList.add(Game.ClassNames.Points)
       $points.textContent = word.points
       children.push($points)
     }
@@ -111,10 +143,7 @@ export class Game {
     $selection.replaceChildren(...children)
   }
 
-  #updateSwaps () {
-    const swaps = this.#grid.getSwaps()
-
-    $swaps.classList.toggle('empty', swaps.length === 0)
+  #updateSwaps (swaps) {
     $swaps.replaceChildren(...swaps.map((swap, index) => {
       const $element = document.createElement('li')
 
@@ -122,7 +151,7 @@ export class Game {
       $element.append(elements.$container)
 
       const $swap = document.createElement('span')
-      $swap.classList.add('swap')
+      $swap.classList.add(Game.ClassNames.Swap)
       $swap.textContent = `${index + 1}. ${swap.join(' → ')}`
       elements.$left.append($swap)
 
@@ -133,7 +162,6 @@ export class Game {
   }
 
   #updateWords (words) {
-    $words.classList.toggle('empty', words.length === 0)
     $words.replaceChildren(...words.map((word, index) => {
       const $element = document.createElement('li')
 
@@ -141,7 +169,7 @@ export class Game {
       $element.append(elements.$container)
 
       const $word = document.createElement('span')
-      $word.classList.add('word')
+      $word.classList.add(Game.ClassNames.Word)
       $word.textContent = `${index + 1}. ${word.content} (${word.points})`
       elements.$left.append($word)
 
@@ -162,14 +190,14 @@ export class Game {
 
   static getContainerElements () {
     const $container = document.createElement('div')
-    $container.classList.add('container')
+    $container.classList.add(Game.ClassNames.Container)
 
     const $left = document.createElement('div')
-    $left.classList.add('flex-left')
+    $left.classList.add(Game.ClassNames.FlexLeft)
     $container.append($left)
 
     const $right = document.createElement('div')
-    $right.classList.add('flex-right')
+    $right.classList.add(Game.ClassNames.FlexRight)
     $container.append($right)
 
     return { $container, $left, $right }
@@ -177,7 +205,7 @@ export class Game {
 
   static getDeleteElement (index) {
     const $delete = document.createElement('span')
-    $delete.classList.add('delete', 'material-symbols-outlined')
+    $delete.classList.add(Game.ClassNames.Delete, Game.ClassNames.Icon)
     $delete.dataset.index = index.toString()
     $delete.textContent = 'delete'
     $delete.title = 'Delete'
@@ -187,24 +215,35 @@ export class Game {
 
   static today = Date.parse(Game.defaultId())
 
-  static Params = Object.freeze({
-    expanded: 'expanded',
-    id: 'id',
-    seed: 'seed',
-    state: 'state',
-    width: 'width'
+  static ClassNames = Object.freeze({
+    Container: 'container',
+    Delete: 'delete',
+    Expanded: 'expanded',
+    FlexLeft: 'flex-left',
+    FlexRight: 'flex-right',
+    Icon: 'material-symbols-outlined',
+    Points: 'points',
+    Swap: 'swap',
+    Valid: 'valid',
+    Word: 'word'
   })
-}
 
-const expanded = State.get(Game.Params.expanded)
-if (expanded || [Game.Params.expanded, Game.Params.state].some((param) => params.has(param))) {
-  $expand.textContent = 'expand_more'
-  $footer.classList.add(Game.Params.expanded)
-}
+  static Params = Object.freeze({
+    Expand: 'expand',
+    Game: 'game',
+    Path: 'path',
+    Width: 'width'
+  })
 
-$expand.addEventListener('click', () => {
-  $footer.classList.toggle(Game.Params.expanded)
-  const expanded = $footer.classList.contains(Game.Params.expanded)
-  $expand.textContent = expanded ? 'expand_more' : 'expand_less'
-  State.set(Game.Params.expanded, expanded)
-})
+  static State = class {
+    expand
+    path
+    width
+
+    constructor (state) {
+      this.expand = state.expand === true
+      this.path = state.path
+      this.width = state.width ?? Grid.DefaultWidth
+    }
+  }
+}
