@@ -10,11 +10,13 @@ import { letters } from './letter'
 const $grid = document.getElementById('grid')
 
 export class Grid {
+  id
+  width
+
   #active
   #cells = []
   #configuration = []
   #eventListeners = new EventListeners({ context: this, element: $grid })
-  #id
   #pointerIndex = -1
   #rand
   #seed
@@ -22,27 +24,38 @@ export class Grid {
   #selectionStart
   #size
   #state
-  #width
 
   constructor (id, width) {
     const state = new Grid.State({ id, width })
 
-    this.#id = state.id
-    this.#width = state.width
-    this.#size = this.#width * this.#width
+    this.id = state.id
+    this.width = state.width
+    this.#size = this.width * this.width
     this.#seed = state.getSeed()
     this.#rand = Grid.splitmix32(this.#seed)
-    this.#state = new State(Grid.Params.Grid, { [this.#seed]: state }, [this.#seed], [this.#seed])
+    this.#state = new State(
+      this.#seed,
+      state,
+      [{ key: this.#seed, name: Grid.Params.Share }],
+      State.params.has(Grid.Params.Share)
+    )
 
-    $grid.dataset.width = this.#width
+    const seed = this.#getState().getSeed()
+    if (seed !== this.#seed) {
+      console.warn(`Ignoring shared state due to seed mismatch. Theirs: ${seed}. Ours: ${this.#seed}.`)
+      State.params.delete(this.#seed)
+      this.#state = new State(this.#seed, state)
+    }
+
+    $grid.dataset.width = this.width
 
     const indexes = []
     for (let index = 0; index < this.#size; index++) {
       indexes.push(index)
 
-      const row = Math.floor(index / this.#width)
-      const column = index % this.#width
-      const coordinates = new Coordinates(row, column, this.#width)
+      const row = Math.floor(index / this.width)
+      const column = index % this.width
+      const coordinates = new Coordinates(row, column, this.width)
       const letter = this.#nextLetter()
       const configuration = new Cell.State(index, letter.character)
       const cell = new Cell(coordinates, configuration)
@@ -114,7 +127,7 @@ export class Grid {
   }
 
   reset () {
-    this.#setState(new Grid.State({ id: this.#id, width: this.#width }))
+    this.#setState(new Grid.State({ id: this.id, width: this.width }))
     this.#update(Grid.getIndexes(this.#cells))
   }
 
@@ -125,7 +138,7 @@ export class Grid {
   }
 
   #getState () {
-    return new Grid.State(this.#state.get(this.#seed))
+    return new Grid.State(this.#state.get())
   }
 
   #nextLetter () {
@@ -251,7 +264,7 @@ export class Grid {
   }
 
   #setState (state) {
-    this.#state.set(this.#seed, state)
+    this.#state.set(state)
   }
 
   #swap (source, target) {
@@ -446,10 +459,9 @@ export class Grid {
   }
 
   static Name = 'grid'
-  static ClassNames = Object.freeze({ Active: 'active' })
   static DefaultWidth = 5
   static Events = Object.freeze({ Update: getClassName(Grid.Name, 'update') })
-  static Params = Object.freeze({ Grid: Grid.Name })
+  static Params = Object.freeze({ Share: 'share' })
   static Widths = Object.freeze([5, 7, 9])
 
   static SelectionStart = class {
@@ -473,7 +485,7 @@ export class Grid {
       this.id = state.id
       this.path = state.path ?? []
       this.swaps = state.swaps ?? []
-      this.width = Grid.Widths.includes(Number(state.width)) ? state.width : Grid.DefaultWidth
+      this.width = Grid.Widths.includes(Number(state.width)) ? Number(state.width) : Grid.DefaultWidth
       this.words = state.words ?? []
     }
 

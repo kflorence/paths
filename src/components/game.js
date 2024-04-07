@@ -5,12 +5,15 @@ import { Word } from './word'
 
 const $expand = document.getElementById('expand')
 const $footer = document.getElementById('footer')
+const $includeState = document.getElementById('include-state')
 const $new = document.getElementById('new')
 const $path = document.getElementById('path')
 const $reset = document.getElementById('reset')
 const $score = document.getElementById('score')
 const $selection = document.getElementById('selection')
+const $share = document.getElementById('share')
 const $swaps = document.getElementById('swaps')
+const $width = document.getElementById('width')
 const $words = document.getElementById('words')
 
 const crypto = window.crypto
@@ -34,26 +37,28 @@ export class Game {
     $path.href = `?${Game.Params.Path}=${path}`
     $path.textContent = path
 
-    this.#state = new State(Game.Params.Game, { path }, [
-      Game.Params.Expand,
-      Game.Params.Path,
-      Game.Params.Width
-    ])
+    this.#grid = new Grid(path, State.params.get(Game.Params.Width))
+    this.#state = new State(Game.Params.Game, {}, [Game.Params.Expand])
 
     const state = new Game.State(this.#state.get())
-
-    this.#grid = new Grid(state.path, state.width)
 
     if (state.expand) {
       $expand.textContent = 'expand_less'
       $footer.classList.add(Game.ClassNames.Expanded)
     }
 
+    if (state.includeStateInShareUrl) {
+      $includeState.checked = true
+    }
+
     this.#state.set(state)
 
     this.#eventListeners.add([
+      { type: 'change', element: $includeState, handler: this.#onIncludeStateChange },
+      { type: 'change', element: $width, handler: this.#onWidthChange },
       { type: 'click', element: $expand, handler: this.expand },
       { type: 'click', element: $reset, handler: this.reset },
+      { type: 'click', element: $share, handler: this.share },
       { type: 'click', element: $swaps, handler: this.#deleteSwap },
       { type: 'click', element: $words, handler: this.#deleteWord },
       { type: Grid.Events.Update, handler: this.update }
@@ -61,6 +66,7 @@ export class Game {
 
     const detail = { swaps: this.#grid.getSwaps(), words: this.#grid.getWords() }
     this.update({ detail })
+    this.#updateWidthSelector()
   }
 
   expand () {
@@ -73,6 +79,10 @@ export class Game {
   reset () {
     this.#grid.reset()
     this.update()
+  }
+
+  share (event) {
+    // TODO
   }
 
   update (event) {
@@ -104,6 +114,17 @@ export class Game {
       const words = this.#grid.removeWord(event.target.dataset.index)
       this.#updateWords(words)
     }
+  }
+
+  #onIncludeStateChange (event) {
+    const state = this.#state.get()
+    state.includeStateInShareUrl = event.target.checked
+    this.#state.set(state)
+  }
+
+  #onWidthChange (event) {
+    State.params.set(Game.Params.Width, event.target.value)
+    location.assign(State.url.search)
   }
 
   #updateScore (words) {
@@ -158,6 +179,18 @@ export class Game {
       elements.$right.append(Game.getDeleteElement(index))
 
       return $element
+    }))
+  }
+
+  #updateWidthSelector () {
+    $width.replaceChildren(...Grid.Widths.map((width) => {
+      const $option = document.createElement('option')
+      $option.textContent = `${width}x${width}`
+      $option.value = width.toString()
+      if (width === this.#grid.width) {
+        $option.selected = true
+      }
+      return $option
     }))
   }
 
@@ -236,14 +269,12 @@ export class Game {
   })
 
   static State = class {
+    includeStateInShareUrl
     expand
-    path
-    width
 
     constructor (state) {
       this.expand = state.expand === true
-      this.path = state.path
-      this.width = state.width ?? Grid.DefaultWidth
+      this.includeStateInShareUrl = state.includeStateInShareUrl === true
     }
   }
 }

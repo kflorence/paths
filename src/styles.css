@@ -17,11 +17,11 @@ body {
 header, footer {
   align-items: stretch;
   display: flex;
-  font-size: 24px;
 }
 
 header {
   color: white;
+  font-size: 24px;
 }
 
 header a {
@@ -36,6 +36,20 @@ header .flex-left {
 footer {
   flex-direction: column;
   margin-bottom: 1em;
+}
+
+select {
+  appearance: none;
+  background-color: #333;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-family: 'Noto Sons Mono', monospace;
+  font-size: 1em;
+}
+
+input {
+  cursor: pointer;
 }
 
 #expand {
@@ -176,7 +190,11 @@ footer {
 }
 
 #home {
-  color: #59FFA0;
+  color: #B4ADEA;
+}
+
+#score {
+  color: #FFED65;
 }
 
 #selection {
@@ -221,21 +239,22 @@ footer {
   display: inline-block;
 }
 
-#score {
-  color: #FFED65;
+#settings label {
+  background-color: #333;
+  border: none;
+  border-radius: 16px;
+  color: white;
+  cursor: pointer;
+  padding: 0.5em;
 }
 
 #status {
+  font-size: 24px;
   padding: 1em 0;
   text-wrap: nowrap;
 }
 
-#swaps .flex-left {
-  flex-basis: fit-content;
-}
-
 #swaps .swap {
-  padding: 0.5em 0.5em 0.5em 0;
   text-wrap: nowrap;
 }
 
@@ -244,17 +263,19 @@ footer {
 }
 
 #words .word {
-  padding: 0.5em 0.5em 0.5em 0;
   text-transform: uppercase;
 }
 
 .container {
+  align-items: center;
   display: flex;
   width: 100%;
 }
 
 .delete {
   align-items: center;
+  background-color: #333;
+  border-radius: 16px;
   cursor: pointer;
   padding: 0.5em;
 }
@@ -263,6 +284,7 @@ footer {
   background: #50514F;
   border-radius: 16px;
   display: none;
+  font-size: 20px;
   padding: 1em;
 }
 
@@ -274,12 +296,30 @@ footer {
 .drawer ul {
   color: #d2d3cd;
   list-style: none;
-  margin: 0 0 0 0.5em;
+  margin: 0;
   padding: 0;
 }
 
+.drawer li {
+  margin-bottom: 0.5em;
+}
+
+.drawer li,
 .drawer ul:empty::after {
-  content: 'N/A';
+  padding: 0 0.5em;
+}
+
+.drawer li:last-child {
+  margin-bottom: 0;
+}
+
+.drawer li .flex-left {
+  flex-basis: fit-content;
+}
+
+
+.drawer ul:empty::after {
+  content: '...';
   display: inline-block;
 }
 

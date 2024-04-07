@@ -61,7 +61,6 @@ export class Cell {
       const flags = new Flags()
       const existingFlags = state.getFlags()
 
-
       Cell.StickyFlags.forEach((flag) => {
         console.log(flag, existingFlags.has(flag))
         if (existingFlags.has(flag)) {
