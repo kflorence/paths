@@ -225,6 +225,10 @@ input {
   display: inline-block;
 }
 
+.share #settings {
+  display: none;
+}
+
 #settings label {
   background-color: #333;
   border: none;
@@ -313,10 +317,10 @@ input {
 }
 
 .drawer .section {
-  margin-bottom: 1em;
+  margin-top: 1em;
 }
 
-.drawer .section:last-child {
+.drawer .section:first-child {
   margin: 0;
 }
 

@@ -23,6 +23,10 @@ const $words = document.getElementById('words')
 const crypto = window.crypto
 const tippy = Tippy($share, { content: 'Copied!', theme: 'custom', trigger: 'manual' })
 
+if (State.params.has(State.Params.State)) {
+  document.body.classList.add('share')
+}
+
 export class Game {
   #eventListeners = new EventListeners({ context: this })
   #grid

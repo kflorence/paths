@@ -97,7 +97,7 @@ export class State {
 
   static Params = Object.freeze({
     Expand: 'expand',
-    Id: 'path',
+    Id: 'id',
     State: 'state',
     Width: 'width'
   })
