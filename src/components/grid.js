@@ -25,19 +25,20 @@ export class Grid {
   #size
   #state
 
-  constructor (id, width) {
-    const state = new Grid.State({ id, width })
+  constructor () {
+    const state = Grid.#State.fromParams()
 
     this.id = state.id
     this.width = state.width
     this.#size = this.width * this.width
     this.#seed = state.getSeed()
     this.#rand = Grid.splitmix32(this.#seed)
+
     this.#state = new State(
       this.#seed,
       state,
-      [{ key: this.#seed, name: Grid.Params.Share }],
-      State.params.has(Grid.Params.Share)
+      [new State.Param(this.#seed, State.Params.State, true, true)],
+      State.params.has(State.Params.State)
     )
 
     const seed = this.#getState().getSeed()
@@ -72,6 +73,18 @@ export class Grid {
       { type: Cell.Events.Select, handler: this.#onSelect },
       { type: 'pointerup', element: document, handler: this.#onPointerUp }
     ])
+  }
+
+  getSelection () {
+    return Array.from(this.#selection)
+  }
+
+  getState () {
+    return State.encode(JSON.stringify(this.#state.get()))
+  }
+
+  getStatistics () {
+    return new Grid.Statistics(this.#getState())
   }
 
   getSwaps () {
@@ -122,23 +135,21 @@ export class Grid {
     }
 
     this.#update(indexes)
-
-    return this.getWords()
   }
 
   reset () {
-    this.#setState(new Grid.State({ id: this.id, width: this.width }))
+    this.#setState(new Grid.#State(this.id, this.width))
     this.#update(Grid.getIndexes(this.#cells))
   }
 
   #deselect (selection) {
     selection.forEach((cell) => cell.reset())
-    const detail = { selection: Array.from(this.#selection) }
-    document.dispatchEvent(new CustomEvent(Grid.Events.Update, { detail }))
+    const detail = { selection: this.getSelection() }
+    document.dispatchEvent(new CustomEvent(Grid.Events.Selection, { detail }))
   }
 
   #getState () {
-    return new Grid.State(this.#state.get())
+    return Grid.#State.fromState(this.#state.get())
   }
 
   #nextLetter () {
@@ -214,50 +225,48 @@ export class Grid {
           flags.push(Cell.Flags.Swap)
         }
       }
-    }
-
-    if (this.#selection.length > 0 && !flags.some((flag) => flag === Cell.Flags.Swap)) {
-      const lastSelectedCell = this.#selection[this.#selection.length - 1]
-      if (lastSelectedCell.getFlags().has(Cell.Flags.Swap)) {
-        // Previous cell was marked for swap. Mark the new cell for swap.
-        flags.push(Cell.Flags.Swap)
-      } else {
-        // Not dealing with a swap.
-        const cellCoordinates = cell.getCoordinates()
-        const cellNeighbors = cellCoordinates.getNeighbors()
-        const lastSelectedCellCoordinates = lastSelectedCell.getCoordinates()
-
-        const isNeighbor = cellNeighbors.some((neighbor) => neighbor.coordinates.equals(lastSelectedCellCoordinates))
-        if (isNeighbor) {
-          // Selected cell is a neighbor of the last selected cell.
-          const state = this.#getState()
-          const direction = cellCoordinates.getDirection(lastSelectedCellCoordinates)
-          const occupiedDirections = cellNeighbors
-            .filter((neighbor) => state.path.includes(neighbor.index))
-            .map((neighbor) => neighbor.direction)
-          if (Coordinates.isCrossing(direction, occupiedDirections)) {
-            // Selected path would cross existing path. Selection is invalid.
-            return
-          } else {
-            flags.push(Cell.Flags.Path, Cell.FlagsByName[direction])
-          }
-        } else if (isMultiSelect) {
-          // Selected cell is not a neighbor, since this is a multi-select, just ignore it.
-          return
-        } else {
-          // A non-neighbor cell was tapped. De-select anything previously selected.
-          this.#deselect(this.#selection.splice(0))
-        }
-      }
-    }
-
-    if (selectedIndex < 0) {
+    } else {
       flags.push(Cell.Flags.Selected)
 
-      // Don't allow duplicates, e.g. when the same cell is selected again.
+      if (this.#selection.length > 0 && !flags.some((flag) => flag === Cell.Flags.Swap)) {
+        const lastSelectedCell = this.#selection[this.#selection.length - 1]
+        if (lastSelectedCell.getFlags().has(Cell.Flags.Swap)) {
+          // Previous cell was marked for swap. Mark the new cell for swap.
+          flags.push(Cell.Flags.Swap)
+        } else {
+          // Not dealing with a swap.
+          const cellCoordinates = cell.getCoordinates()
+          const cellNeighbors = cellCoordinates.getNeighbors()
+          const lastSelectedCellCoordinates = lastSelectedCell.getCoordinates()
+
+          const isNeighbor = cellNeighbors.some((neighbor) => neighbor.coordinates.equals(lastSelectedCellCoordinates))
+          if (isNeighbor) {
+            // Selected cell is a neighbor of the last selected cell.
+            const state = this.#getState()
+            const direction = cellCoordinates.getDirection(lastSelectedCellCoordinates)
+            const occupiedDirections = cellNeighbors
+              .filter((neighbor) => state.path.includes(neighbor.index))
+              .map((neighbor) => neighbor.direction)
+            if (Coordinates.isCrossing(direction, occupiedDirections)) {
+              // Selected path would cross existing path. Selection is invalid.
+              return
+            } else {
+              flags.push(Cell.Flags.Path, Cell.FlagsByName[direction])
+            }
+          } else if (isMultiSelect) {
+            // Selected cell is not a neighbor, since this is a multi-select, just ignore it.
+            return
+          } else {
+            // A non-neighbor cell was tapped. De-select anything previously selected.
+            this.#deselect(this.#selection.splice(0))
+          }
+        }
+      }
+
       this.#selection.push(cell)
-      const detail = { selection: Array.from(this.#selection) }
-      document.dispatchEvent(new CustomEvent(Grid.Events.Update, { detail }))
+
+      const detail = { selection: this.getSelection() }
+      document.dispatchEvent(new CustomEvent(Grid.Events.Selection, { detail }))
     }
 
     cell.update((state) => state.copy({ flags: state.getFlags().add(...flags) }))
@@ -459,9 +468,22 @@ export class Grid {
   }
 
   static Name = 'grid'
+  static DefaultId = (() => {
+    // The ID for the daily puzzle
+    const date = new Date()
+    const year = date.getFullYear()
+    const month = (date.getMonth() + 1).toString().padStart(2, '0')
+    const day = date.getDate().toString().padStart(2, '0')
+    return `${year}-${month}-${day}`
+  })()
+
   static DefaultWidth = 5
-  static Events = Object.freeze({ Update: getClassName(Grid.Name, 'update') })
-  static Params = Object.freeze({ Share: 'share' })
+  static Events = Object.freeze({
+    Selection: getClassName(Grid.Name, 'selection'),
+    Update: getClassName(Grid.Name, 'update')
+  })
+
+  static Today = Date.parse(Grid.DefaultId)
   static Widths = Object.freeze([5, 7, 9])
 
   static SelectionStart = class {
@@ -474,23 +496,63 @@ export class Grid {
     }
   }
 
-  static State = class {
+  static #State = class {
     id
     path
     swaps
     width
     words
 
-    constructor (state) {
-      this.id = state.id
-      this.path = state.path ?? []
-      this.swaps = state.swaps ?? []
-      this.width = Grid.Widths.includes(Number(state.width)) ? Number(state.width) : Grid.DefaultWidth
-      this.words = state.words ?? []
+    constructor (id, width, path, swaps, words) {
+      this.id = id
+      this.width = Number(width)
+      if (!Grid.Widths.includes(this.width)) {
+        this.width = Grid.DefaultWidth
+      }
+
+      this.path = path ?? []
+      this.swaps = swaps ?? []
+      this.words = words ?? []
     }
 
     getSeed () {
       return Grid.cyrb53([this.id, this.width].join(','))
+    }
+
+    static fromParams () {
+      let id = State.params.get(State.Params.Id)
+      if (id !== null) {
+        const date = Date.parse(id)
+        if (!isNaN(date) && date > Grid.Today) {
+          console.debug('The provided ID is for a future date, defaulting to the ID for today.', id)
+          id = Grid.DefaultId
+        }
+      } else {
+        id = Grid.DefaultId
+      }
+
+      const width = State.params.get(State.Params.Width)
+      return new Grid.#State(id, width)
+    }
+
+    static fromState (state) {
+      return new Grid.#State(state.id, state.width, state.path, state.swaps, state.words)
+    }
+  }
+
+  static Statistics = class {
+    averageWordLength
+    progress
+    swapCount
+    wordCount
+
+    constructor (state) {
+      this.averageWordLength = state.words.length
+        ? (state.words.reduce((sum, word) => sum + word.length, 0) / state.words.length).toPrecision(2)
+        : 0
+      this.progress = Math.trunc((state.path.length / (state.width * state.width)) * 100)
+      this.swapCount = state.swaps.length
+      this.wordCount = state.words.length
     }
   }
 }

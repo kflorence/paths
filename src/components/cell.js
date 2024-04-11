@@ -59,15 +59,8 @@ export class Cell {
   reset () {
     this.update((state) => {
       const flags = new Flags()
-      const existingFlags = state.getFlags()
-
-      Cell.StickyFlags.forEach((flag) => {
-        console.log(flag, existingFlags.has(flag))
-        if (existingFlags.has(flag)) {
-          flags.add(flag)
-        }
-      })
-
+      const existing = state.getFlags()
+      Cell.StickyFlags.filter((flag) => existing.has(flag)).forEach((flag) => flags.add(flag))
       return state.copy({ flags })
     })
   }

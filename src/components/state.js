@@ -1,3 +1,5 @@
+import { base64decode, base64encode } from './util'
+
 const localStorage = window.localStorage
 const location = window.location
 
@@ -25,27 +27,12 @@ export class State {
       }
     }
 
-    params
-      .map((param) => typeof param === 'object' ? param : { key: param, name: param })
-      .filter((param) => {
-        if (param.key === undefined || param.name === undefined) {
-          console.debug('Ignoring invalid param', param)
-          return false
-        }
-
-        return State.params.has(param.name)
-      })
-      .forEach((param) => {
-        if (State.params.has(param.name)) {
-          const value = State.params.get(param.name)
-          console.debug(`Setting key '${param.key}' for URL param '${param.name}'.`, value)
-          try {
-            this.set(param.key, JSON.parse(value))
-          } catch (e) {
-            this.set(param.key, value)
-          }
-        }
-      })
+    params.filter((param) => State.params.has(param.name)).forEach((param) => {
+      const raw = State.params.get(param.name)
+      const value = param.isEncoded ? State.decode(raw) : raw
+      console.debug(`Setting key '${param.key}' for URL param '${param.name}'.`, value)
+      this.set(param.key, param.isJson ? JSON.parse(value) : value)
+    })
   }
 
   get (key) {
@@ -81,4 +68,37 @@ export class State {
 
   static url = new URL(location)
   static params = State.url.searchParams
+
+  static decode (value) {
+    return base64decode(value)
+  }
+
+  static encode (value) {
+    return base64encode(value)
+  }
+
+  static reload () {
+    location.assign(State.url.search)
+  }
+
+  static Param = class {
+    key
+    name
+    isEncoded
+    isJson
+
+    constructor (key, name, isEncoded, isJson) {
+      this.key = key
+      this.name = name ?? key
+      this.isEncoded = isEncoded === true
+      this.isJson = isJson === true
+    }
+  }
+
+  static Params = Object.freeze({
+    Expand: 'expand',
+    Id: 'path',
+    State: 'state',
+    Width: 'width'
+  })
 }

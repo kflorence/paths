@@ -216,20 +216,6 @@ input {
   padding-right: 0;
 }
 
-#selection .points {
-  color: #FFED65;
-}
-
-#selection .points::before {
-  color: #9da19c;
-  content: '('
-}
-
-#selection .points::after {
-  color: #9da19c;
-  content: ')'
-}
-
 #selection .valid {
   color: #59FFA0;
 }
@@ -245,7 +231,7 @@ input {
   border-radius: 16px;
   color: white;
   cursor: pointer;
-  padding: 0.5em;
+  padding: 0.25em 0.5em;
 }
 
 #status {
@@ -263,6 +249,7 @@ input {
 }
 
 #words .word {
+  margin-right: 0.5em;
   text-transform: uppercase;
 }
 
@@ -277,7 +264,7 @@ input {
   background-color: #333;
   border-radius: 16px;
   cursor: pointer;
-  padding: 0.5em;
+  padding: 0.25em 0.5em;
 }
 
 .drawer {
@@ -304,9 +291,12 @@ input {
   margin-bottom: 0.5em;
 }
 
-.drawer li,
-.drawer ul:empty::after {
+.drawer li {
   padding: 0 0.5em;
+}
+
+.drawer ul:empty::after {
+  padding: 0.5em;
 }
 
 .drawer li:last-child {
@@ -317,9 +307,8 @@ input {
   flex-basis: fit-content;
 }
 
-
 .drawer ul:empty::after {
-  content: '...';
+  content: 'N/A';
   display: inline-block;
 }
 
@@ -393,6 +382,34 @@ input {
 .menu a {
   color: white;
   text-decoration: none;
+}
+
+.points {
+  color: #FFED65;
+}
+
+.points::before {
+  color: #9da19c;
+  content: '('
+}
+
+.points::after {
+  color: #9da19c;
+  content: ')'
+}
+
+.tippy-box[data-theme~='custom'] {
+  background-color: #A7A9A4;
+  color: black;
+  font-size: 1.2em;
+}
+
+.tippy-box[data-theme~='custom'][data-placement^='top'] > .tippy-arrow::before {
+  border-top-color: #A7A9A4;
+}
+
+.tippy-box[data-theme~='custom'] > .tippy-content {
+  padding: 0.5em 1em;
 }
 
 @media (max-width: 1024px) {

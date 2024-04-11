@@ -23,6 +23,8 @@
     "standard": "^17.1.0"
   },
   "dependencies": {
+    "pako": "^2.1.0",
+    "tippy.js": "^6.3.7",
     "word-list": "^3.1.0"
   }
 }
