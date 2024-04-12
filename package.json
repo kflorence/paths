@@ -1,8 +1,8 @@
 {
-  "name": "wordpath",
+  "name": "paths",
   "source": "src/index.html",
   "scripts": {
-    "build": "parcel build --public-url 'https://kflorence.github.io/wordpath'",
+    "build": "parcel build --public-url 'https://kflorence.github.io/paths'",
     "start": "parcel",
     "test": "npm run test-lint",
     "test-lint": "standard"
@@ -17,6 +17,7 @@
   },
   "devDependencies": {
     "@parcel/transformer-inline-string": "^2.11.0",
+    "gh-pages": "^6.1.1",
     "parcel": "^2.11.0",
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",
