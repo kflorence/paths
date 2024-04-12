@@ -620,6 +620,7 @@ p.center {
   text-transform: uppercase;
 }
 
+.share .delete,
 .share #settings {
   display: none;
 }
