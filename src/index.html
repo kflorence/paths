@@ -82,10 +82,19 @@
         <ul id="letter-points"></ul>
         <p>
           Words are awarded a bonus multiplier based on their length. The multiplier is calculated by taking the length of
-          the word, subtracting any swapped letters, dividing by three and then rounding down to the largest integer.
+          the word, subtracting any swapped letters, and then dividing by the grid size multiplier, rounded down to the
+          nearest integer. The grid size multiplier is calculated by dividing the grid width by two, also rounded down
+          to the nearest integer. The standard grid size multipliers are listed below:
         </p>
+        <ul id="grid-size-multipliers"></ul>
         <p>
-          Some scoring examples are shown below.
+          Additionally, filling out the entire grid will award <strong>one point</strong> for every letter on the grid.
+          For example, if you fill out an entire <code>5x5</code> grid, you will be awarded an additional
+          <strong>25 points</strong>.
+        </p>
+        <hr>
+        <p>
+          Some scoring examples are shown below. All of these scoring examples are for <code>5x5</code> grids.
         </p>
         <ul id="scoring-examples">
           <li>
@@ -96,7 +105,7 @@
                 </p>
                 <ul>
                   <li>Letters: <code>B(3) + E(0) + E(1) = 4</code></li>
-                  <li>Multiplier: <code>(3 - 1) / 3 = 0</code></li>
+                  <li>Multiplier: <code>(3 - 1) / 2 = 0</code></li>
                   <li>Result: <code>4 * 0 = 0</code></li>
                 </ul>
               </div>
@@ -112,11 +121,11 @@
           <li>
             <div class="container">
               <div class="flex-left">
-                <p>This word is worth <strong>24 points</strong>.</p>
+                <p>This word is worth <strong>36 points</strong>.</p>
                 <ul>
                   <li>Letters: <code>P(3) + E(1) + O(2) + P(3) + L(2) + E(1) = 12</code></li>
-                  <li>Multiplier: <code>6 / 3 = 2</code></li>
-                  <li>Result: <code>12 * 2 = 24</code></li>
+                  <li>Multiplier: <code>6 / 2 = 3</code></li>
+                  <li>Result: <code>12 * 3 = 36</code></li>
                 </ul>
               </div>
               <div class="flex-right">

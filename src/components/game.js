@@ -139,7 +139,12 @@ export class Game {
   }
 
   #updateScore (words) {
-    $score.textContent = Game.getScore(words)
+    let score = Game.getScore(words)
+    const statistics = this.#grid.getStatistics()
+    if (statistics.progress === 100) {
+      score += this.#grid.size
+    }
+    $score.textContent = score
   }
 
   #updateSelection () {
@@ -167,7 +172,7 @@ export class Game {
     }
 
     if ($content.classList.contains(Game.ClassNames.Valid)) {
-      const word = new Word(selection)
+      const word = new Word(this.#grid.width, selection)
       const $points = document.createElement('span')
       $points.classList.add(Game.ClassNames.Points)
       $points.textContent = word.points

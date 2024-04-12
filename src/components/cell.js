@@ -93,6 +93,10 @@ export class Cell {
   }
 
   #onSelect (event) {
+    if (event.type === 'pointerdown') {
+      event.target.releasePointerCapture(event.pointerId)
+    }
+
     if (event.buttons > 0) {
       // User has clicked or touched the cell
       const detail = { cell: this }

@@ -11,6 +11,7 @@ const $grid = document.getElementById('grid')
 
 export class Grid {
   id
+  size
   width
 
   #active
@@ -22,7 +23,6 @@ export class Grid {
   #seed
   #selection = []
   #selectionStart
-  #size
   #state
 
   constructor () {
@@ -30,7 +30,7 @@ export class Grid {
 
     this.id = state.id
     this.width = state.width
-    this.#size = this.width * this.width
+    this.size = this.width * this.width
     this.#seed = state.getSeed()
     this.#rand = Grid.splitmix32(this.#seed)
 
@@ -51,7 +51,7 @@ export class Grid {
     $grid.dataset.width = this.width
 
     const indexes = []
-    for (let index = 0; index < this.#size; index++) {
+    for (let index = 0; index < this.size; index++) {
       indexes.push(index)
 
       const row = Math.floor(index / this.width)
@@ -97,7 +97,7 @@ export class Grid {
   }
 
   getWords () {
-    return this.#getState().words.map((indexes) => new Word(indexes.map((index) => this.#cells[index])))
+    return this.#getState().words.map((indexes) => new Word(this.width, indexes.map((index) => this.#cells[index])))
   }
 
   removeSwap (index) {
@@ -568,3 +568,11 @@ export class Grid {
     }
   }
 }
+
+const $gridSizeMultipliers = document.getElementById('grid-size-multipliers')
+
+Grid.Widths.forEach((width) => {
+  const $li = document.createElement('li')
+  $li.textContent = `${width}x${width} = ${Word.widthMultiplier(width)}`
+  $gridSizeMultipliers.append($li)
+})

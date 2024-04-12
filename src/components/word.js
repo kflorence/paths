@@ -10,7 +10,7 @@ export class Word {
   indexes = []
   points
 
-  constructor (cells) {
+  constructor (width, cells) {
     const content = []
     const pointScoringLetters = []
     cells.forEach((cell) => {
@@ -26,11 +26,15 @@ export class Word {
 
     this.content = content.join('')
 
-    const lengthMultiplier = Math.floor(pointScoringLetters.length / 3)
+    const lengthMultiplier = Math.floor(pointScoringLetters.length / Word.widthMultiplier(width))
     this.points = pointScoringLetters.reduce((points, letter) => points + letter.points, 0) * lengthMultiplier
   }
 
   static isValid (word) {
     return word.length > 2 && words.includes(word)
+  }
+
+  static widthMultiplier (width) {
+    return Math.floor(width / 2)
   }
 }
