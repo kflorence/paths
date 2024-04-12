@@ -424,6 +424,8 @@ p.center {
   position: relative;
   touch-action: none;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
   z-index: 0;
 }
 

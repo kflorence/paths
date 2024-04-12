@@ -132,8 +132,9 @@ export class Game {
 
   #updateDrawer () {
     const state = this.#state.get()
-    $footer.classList.toggle(Game.ClassNames.Expanded, state.expand)
-    $expand.textContent = state.expand ? 'expand_less' : 'expand_more'
+    const expanded = state.expand === true
+    $footer.classList.toggle(Game.ClassNames.Expanded, expanded)
+    $expand.textContent = expanded ? 'expand_less' : 'expand_more'
     $includeState.checked = state.includeStateInShareUrl
   }
 
