@@ -58,6 +58,14 @@ export class Game {
     this.#updateWidthSelector()
   }
 
+  getScore (words, statistics = this.#grid.getStatistics()) {
+    let score = words.reduce((points, word) => points + word.points, 0)
+    if (statistics.progress === 100) {
+      score += this.#grid.size
+    }
+    return score
+  }
+
   reset () {
     this.#grid.reset()
     this.update()
@@ -70,8 +78,8 @@ export class Game {
     const state = this.#state.get()
     const url = new URL(State.url.toString())
     const words = this.#grid.getWords()
-    const score = Game.getScore(words)
     const statistics = this.#grid.getStatistics()
+    const score = this.getScore(words, statistics)
 
     url.searchParams.set(State.Params.Id, id)
     if (state.includeStateInShareUrl) {
@@ -139,12 +147,7 @@ export class Game {
   }
 
   #updateScore (words) {
-    let score = Game.getScore(words)
-    const statistics = this.#grid.getStatistics()
-    if (statistics.progress === 100) {
-      score += this.#grid.size
-    }
-    $score.textContent = score
+    $score.textContent = this.getScore(words)
   }
 
   #updateSelection () {
@@ -262,10 +265,6 @@ export class Game {
     $container.append($containerRight)
 
     return $li
-  }
-
-  static getScore (words) {
-    return words.reduce((points, word) => points + word.points, 0)
   }
 
   static ClassNames = Object.freeze({
