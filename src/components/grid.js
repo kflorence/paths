@@ -201,6 +201,11 @@ export class Grid {
       this.#selectionStart = new Grid.SelectionStart(event, this.#selection.length)
     }
 
+    if (isMultiSelect && this.#selection.length === 0) {
+      // Selection was cleared during multi-select, wait for pointerup to resume.
+      return
+    }
+
     const selectedIndex = this.#selection.findIndex((selected) => selected.equals(cell))
     if (selectedIndex >= 0) {
       // An already selected cell was selected again.
@@ -231,8 +236,15 @@ export class Grid {
       if (this.#selection.length > 0 && !flags.some((flag) => flag === Cell.Flags.Swap)) {
         const lastSelectedCell = this.#selection[this.#selection.length - 1]
         if (lastSelectedCell.getFlags().has(Cell.Flags.Swap)) {
-          // Previous cell was marked for swap. Mark the new cell for swap.
-          flags.push(Cell.Flags.Swap)
+          // Previous cell was marked for swap.
+          if (isMultiSelect) {
+            // User is initiating a multi-select. De-select all.
+            this.#deselect(this.#selection.splice(0))
+            return
+          } else {
+            // A single cell was tapped.
+            flags.push(Cell.Flags.Swap)
+          }
         } else {
           // Not dealing with a swap.
           const cellCoordinates = cell.getCoordinates()

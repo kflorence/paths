@@ -67,3 +67,21 @@ export const lettersByCharacter = Object.fromEntries(Letter.characters.map((char
 ]))
 
 export const letters = Object.values(lettersByCharacter)
+
+const $letterPoints = document.getElementById('letter-points')
+
+const letterPointBuckets = {}
+letters.forEach((letter) =>
+  (letterPointBuckets[letter.points] ?? (letterPointBuckets[letter.points] = [])).push(letter))
+
+for (const points in letterPointBuckets) {
+  const $li = document.createElement('li')
+  const $points = document.createElement('span')
+  $points.classList.add('points')
+  $points.textContent = `${points} Point${points > 1 ? 's' : ''}:`
+  const $letters = document.createElement('span')
+  $letters.classList.add('letters')
+  $letters.textContent = letterPointBuckets[points].map((letter) => letter.character).join(', ')
+  $li.append($points, $letters)
+  $letterPoints.append($li)
+}
