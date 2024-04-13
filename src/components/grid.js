@@ -26,27 +26,17 @@ export class Grid {
   #state
 
   constructor () {
-    const state = Grid.#State.fromParams()
+    const ephemeral = State.params.has(State.Params.State)
+    const state = ephemeral
+      ? Grid.#State.fromState(State.get(new State.Param(State.Params.State, true, true)))
+      : Grid.#State.fromParams()
 
     this.id = state.id
     this.width = state.width
     this.size = this.width * this.width
     this.#seed = state.getSeed()
     this.#rand = Grid.splitmix32(this.#seed)
-
-    this.#state = new State(
-      this.#seed,
-      state,
-      [new State.Param(this.#seed, State.Params.State, true, true)],
-      State.params.has(State.Params.State)
-    )
-
-    const seed = this.#getState().getSeed()
-    if (seed !== this.#seed) {
-      console.warn(`Ignoring shared state due to seed mismatch. Theirs: ${seed}. Ours: ${this.#seed}.`)
-      State.params.delete(this.#seed)
-      this.#state = new State(this.#seed, state)
-    }
+    this.#state = new State(this.#seed, state, ephemeral)
 
     $grid.dataset.width = this.width
 
@@ -142,6 +132,20 @@ export class Grid {
     this.#update(Grid.getIndexes(this.#cells))
   }
 
+  #activate (cell) {
+    cell.update((state) => state.copy({ flags: state.getFlags().add(Cell.Flags.Active) }))
+    this.#active = cell
+  }
+
+  #deactivate () {
+    if (!this.#active) {
+      return
+    }
+
+    this.#active.update((state) => state.copy({ flags: state.getFlags().remove(Cell.Flags.Active) }))
+    this.#active = undefined
+  }
+
   #deselect (selection) {
     selection.forEach((cell) => cell.reset())
     const detail = { selection: this.getSelection() }
@@ -158,10 +162,7 @@ export class Grid {
   }
 
   #onPointerUp () {
-    if (this.#active) {
-      this.#active.update((state) => state.copy({ flags: state.getFlags().remove(Cell.Flags.Active) }))
-      this.#active = undefined
-    }
+    this.#deactivate()
 
     if (!this.#selectionStart) {
       // User clicked outside the grid area. De-select anything that was selected.
@@ -191,8 +192,9 @@ export class Grid {
       return
     }
 
-    const flags = [Cell.Flags.Active]
-    this.#active = cell
+    const flags = []
+    this.#deactivate()
+    this.#activate(cell)
 
     // User is doing a multi-select if multiple onSelect events have been fired before pointerup resets selectionStart.
     const isMultiSelect = this.#selectionStart !== undefined

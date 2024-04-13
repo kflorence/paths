@@ -6,6 +6,7 @@ body {
   color: white;
   font-family: 'Noto Sons Mono', monospace;
   margin: 0;
+  overflow-x: hidden;
   padding: 0;
 }
 
@@ -182,7 +183,6 @@ p.center {
 
 #container header {
   color: white;
-  font-size: 24px;
 }
 
 #container header a {
@@ -192,6 +192,7 @@ p.center {
 
 #container header .flex-left {
   flex: content;
+  font-size: 24px;
 }
 
 #container footer {
@@ -412,15 +413,20 @@ p.center {
 
 .flex-right {
   justify-content: flex-end;
+  margin-left: 1em;
 }
 
 .grid {
+  align-items: center;
+  aspect-ratio: 1;
   background-color: #A7A9A4;
   border-radius: 16px 16px 0 0;
   cursor: pointer;
   display: grid;
-  font-size: 2em;
+  gap: clamp(8px, 2vw, 16px);
+  justify-items: center;
   margin: auto;
+  padding: clamp(8px, 2vw, 16px);
   position: relative;
   touch-action: none;
   user-select: none;
@@ -429,7 +435,19 @@ p.center {
   z-index: 0;
 }
 
+.grid .cell {
+  align-items: center;
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  color: #333;
+  display: flex;
+  justify-content: center;
+  position: relative;
+  width: clamp(32px, 12vw, 64px);
+}
+
 .grid.example {
+  aspect-ratio: auto;
   border-radius: 16px;
 }
 
@@ -449,28 +467,33 @@ p.center {
   grid-template-columns: repeat(9, 1fr);
 }
 
-.grid .cell {
+.grid[data-width="9"] .cell {
+  width: clamp(32px, 9vw, 64px);
+}
+
+.grid .cell .background {
   align-items: center;
-  aspect-ratio: 1;
   background-color: #9da19c;
   border-radius: 50%;
-  box-sizing: border-box;
-  color: #333;
   display: flex;
+  height: 100%;
   justify-content: center;
-  margin: clamp(8px, 2vw, 16px);
-  position: relative;
-  text-transform: uppercase;
-  width: 64px;
+  width: 100%
 }
 
 .grid .cell .content {
   align-items: center;
   border-radius: 50%;
   display: flex;
-  justify-content: center;
+  font-size: clamp(1em, 6vw, 2em);
   height: 80%;
+  justify-content: center;
+  text-transform: uppercase;
   width: 80%;
+}
+
+.grid .cell-active .content {
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 .grid .cell-first .content {
@@ -479,7 +502,6 @@ p.center {
 
 /* path is pointing east by default */
 .grid .cell-path:not(.cell-last)::after {
-  background-color: inherit;
   box-sizing: border-box;
   content: '';
   height: 25%;
@@ -492,7 +514,7 @@ p.center {
 }
 
 .grid .cell-path.cell-word-end::after {
-  opacity: 0.5;
+  opacity: 0.25;
 }
 
 .grid .cell-path.cell-direction-north::after {
@@ -527,31 +549,31 @@ p.center {
   transform: rotate(-180deg);
 }
 
-.grid .cell-selected {
+.grid .cell-selected::after,
+.grid .cell-selected .background {
   background-color: #FDFFF7;
-  color: black;
 }
 
-.grid .cell-swap,
-.grid .cell-swapped {
+.grid .cell-swap::after,
+.grid .cell-swap .background,
+.grid .cell-swapped::after,
+.grid .cell-swapped .background {
   background-color: #B4ADEA;
-  color: black;
 }
 
-.grid .cell-swapped.cell-selected {
+.grid .cell-swapped.cell-selected::after,
+.grid .cell-swapped.cell-selected .background {
   background-color: color-mix(in oklab, #B4ADEA, #FDFFF7)
 }
 
-.grid .cell-swapped.cell-validated {
+.grid .cell-swapped.cell-validated::after,
+.grid .cell-swapped.cell-validated .background {
   background-color: color-mix(in oklab, #B4ADEA, #59FFA0)
 }
 
-.grid .cell-validated {
+.grid .cell-validated::after,
+.grid .cell-validated .background {
   background-color: #59FFA0;
-}
-
-.grid .cell-word-end::before {
-  opacity: 0.5;
 }
 
 /* https://developers.google.com/fonts/docs/material_icons */

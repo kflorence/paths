@@ -28,15 +28,33 @@
       <div class="container">
         <div class="center">
           <div class="example grid" data-width="3">
-            <div class="cell"><span class="content">w</span></div>
-            <div class="cell cell-direction-south-east cell-path cell-validated"><span class="content">a</span></div>
-            <div class="cell"><span class="content">o</span></div>
-            <div class="cell cell-last cell-path cell-validated"><span class="content">s</span></div>
-            <div class="cell cell-direction-north cell-first cell-path cell-validated"><span class="content">p</span></div>
-            <div class="cell cell-direction-south-west cell-path cell-validated"><span class="content">t</span></div>
-            <div class="cell"><span class="content">r</span></div>
-            <div class="cell cell-direction-north-west cell-path cell-validated"><span class="content">h</span></div>
-            <div class="cell"><span class="content">d</span></div>
+            <div class="cell">
+              <div class="background"><span class="content">w</span></div>
+            </div>
+            <div class="cell cell-direction-south-east cell-path cell-validated">
+              <div class="background"><span class="content">a</span></div>
+            </div>
+            <div class="cell">
+              <div class="background"><span class="content">o</span></div>
+            </div>
+            <div class="cell cell-last cell-path cell-validated">
+              <div class="background"><span class="content">s</span></div>
+            </div>
+            <div class="cell cell-direction-north cell-first cell-path cell-validated">
+              <div class="background"><span class="content">p</span></div>
+            </div>
+            <div class="cell cell-direction-south-west cell-path cell-validated">
+              <div class="background"><span class="content">t</span></div>
+            </div>
+            <div class="cell">
+              <div class="background"><span class="content">r</span></div>
+            </div>
+            <div class="cell cell-direction-north-west cell-path cell-validated">
+              <div class="background"><span class="content">h</span></div>
+            </div>
+            <div class="cell">
+              <div class="background"><span class="content">d</span></div>
+            </div>
           </div>
         </div>
       </div>
@@ -111,9 +129,15 @@
               </div>
               <div class="flex-right">
                 <div class="example grid" data-width="3">
-                  <div class="cell cell-direction-east cell-path cell-validated"><span class="content">b</span></div>
-                  <div class="cell cell-direction-east cell-path cell-swapped cell-validated"><span class="content">e</span></div>
-                  <div class="cell cell-last cell-path cell-validated"><span class="content">e</span></div>
+                  <div class="cell cell-direction-east cell-path cell-validated">
+                    <div class="background"><span class="content">b</span></div>
+                  </div>
+                  <div class="cell cell-direction-east cell-path cell-swapped cell-validated">
+                    <div class="background"><span class="content">e</span></div>
+                  </div>
+                  <div class="cell cell-last cell-path cell-validated">
+                    <div class="background"><span class="content">e</span></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -130,12 +154,24 @@
               </div>
               <div class="flex-right">
                 <div class="example grid" data-width="3">
-                  <div class="cell cell-direction-south cell-first cell-path cell-validated"><span class="content">p</span></div>
-                  <div class="cell cell-direction-east cell-path cell-validated"><span class="content">o</span></div>
-                  <div class="cell cell-direction-south-west cell-path cell-validated"><span class="content">p</span></div>
-                  <div class="cell cell-direction-north-east cell-path cell-validated"><span class="content">e</span></div>
-                  <div class="cell cell-direction-east cell-path cell-validated"><span class="content">l</span></div>
-                  <div class="cell cell-last cell-path cell-validated"><span class="content">e</span></div>
+                  <div class="cell cell-direction-south cell-first cell-path cell-validated">
+                    <div class="background"><span class="content">p</span></div>
+                  </div>
+                  <div class="cell cell-direction-east cell-path cell-validated">
+                    <div class="background"><span class="content">o</span></div>
+                  </div>
+                  <div class="cell cell-direction-south-west cell-path cell-validated">
+                    <div class="background"><span class="content">p</span></div>
+                  </div>
+                  <div class="cell cell-direction-north-east cell-path cell-validated">
+                    <div class="background"><span class="content">e</span></div>
+                  </div>
+                  <div class="cell cell-direction-east cell-path cell-validated">
+                    <div class="background"><span class="content">l</span></div>
+                  </div>
+                  <div class="cell cell-last cell-path cell-validated">
+                    <div class="background"><span class="content">e</span></div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -164,6 +200,7 @@
       </div>
       <div class="flex-right">
         <ul class="menu">
+          <li><a class="material-symbols-outlined" id="new" title="Play Again">cycle</a></li>
           <li><span class="material-symbols-outlined" id="help" title="Help">help</span></li>
         </ul>
       </div>
@@ -182,7 +219,6 @@
           <ul class="menu">
             <li><span class="material-symbols-outlined" id="share" title="Share">share</span></li>
             <li><span class="material-symbols-outlined" id="reset" title="Reset">device_reset</span></li>
-            <li><a class="material-symbols-outlined" id="new" title="Play Again">cycle</a></li>
           </ul>
         </div>
       </div>

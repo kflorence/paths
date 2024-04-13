@@ -9,10 +9,10 @@ export class State {
   #ephemeral
   #value
 
-  constructor (key, value, params = [], ephemeral = false) {
+  constructor (key, value, options = {}) {
     this.key = key
 
-    this.#ephemeral = ephemeral
+    this.#ephemeral = options.ephemeral === true
     this.#value = structuredClone(value)
 
     if (key !== undefined) {
@@ -27,12 +27,13 @@ export class State {
       }
     }
 
-    params.filter((param) => State.params.has(param.name)).forEach((param) => {
-      const raw = State.params.get(param.name)
-      const value = param.isEncoded ? State.decode(raw) : raw
-      console.debug(`Setting key '${param.key}' for URL param '${param.name}'.`, value)
-      this.set(param.key, param.isJson ? JSON.parse(value) : value)
-    })
+    const params = options.params ?? {}
+    for (const key in params) {
+      const value = State.get(params[key])
+      if (value !== undefined) {
+        this.set(key, value)
+      }
+    }
   }
 
   get (key) {
@@ -77,19 +78,27 @@ export class State {
     return base64encode(value)
   }
 
+  static get (param) {
+    if (!State.params.has(param.name)) {
+      return
+    }
+
+    const raw = State.params.get(param.name)
+    const value = param.isEncoded ? State.decode(raw) : raw
+    return param.isJson ? JSON.parse(value) : value
+  }
+
   static reload () {
     location.assign(State.url.search)
   }
 
   static Param = class {
-    key
     name
     isEncoded
     isJson
 
-    constructor (key, name, isEncoded, isJson) {
-      this.key = key
-      this.name = name ?? key
+    constructor (name, isEncoded, isJson) {
+      this.name = name
       this.isEncoded = isEncoded === true
       this.isJson = isJson === true
     }

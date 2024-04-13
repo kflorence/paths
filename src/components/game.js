@@ -5,6 +5,7 @@ import 'tippy.js/dist/tippy.css'
 import { State } from './state'
 import { Word } from './word'
 import { writeToClipboard } from './util'
+import { Cell } from './cell'
 
 const $expand = document.getElementById('expand')
 const $footer = document.getElementById('footer')
@@ -39,7 +40,11 @@ export class Game {
     $path.href = `?${State.Params.Id}=${this.#grid.id}`
     $path.textContent = this.#grid.id
 
-    this.#state = new State('game', {}, [State.Params.Expand])
+    this.#state = new State(
+      'game',
+      {},
+      { params: { [State.Params.Expand]: new State.Param(State.Params.Expand) } }
+    )
 
     this.#eventListeners.add([
       { type: 'change', element: $includeState, handler: this.#onIncludeStateChange },
@@ -58,12 +63,13 @@ export class Game {
     this.#updateWidthSelector()
   }
 
-  getScore (words, statistics = this.#grid.getStatistics()) {
-    let score = words.reduce((points, word) => points + word.points, 0)
-    if (statistics.progress === 100) {
-      score += this.#grid.size
-    }
-    return score
+  getScore (words) {
+    const { length, points } = words.reduce(
+      (acc, word) => ({ length: acc.length + word.content.length, points: acc.points + word.points }),
+      { length: 0, points: 0 }
+    )
+    const size = this.#grid.size
+    return points + (length === size ? size : 0)
   }
 
   reset () {
@@ -79,11 +85,13 @@ export class Game {
     const url = new URL(State.url.toString())
     const words = this.#grid.getWords()
     const statistics = this.#grid.getStatistics()
-    const score = this.getScore(words, statistics)
+    const score = this.getScore(words)
 
-    url.searchParams.set(State.Params.Id, id)
     if (state.includeStateInShareUrl) {
       url.searchParams.set(State.Params.State, this.#grid.getState())
+    } else {
+      url.searchParams.set(State.Params.Id, id)
+      url.searchParams.set(State.Params.Width, width)
     }
 
     const content = `Paths #${id} (${size})\n` +
@@ -151,8 +159,8 @@ export class Game {
   }
 
   #updateSelection () {
-    const selection = this.#grid.getSelection()
-
+    const selection = this.#grid.getSelection().filter((cell) => !cell.getFlags().has(Cell.Flags.Swap))
+    console.log(selection)
     $selection.replaceChildren()
     $selection.classList.remove(Game.ClassNames.Valid)
 
@@ -227,7 +235,7 @@ export class Game {
     $words.replaceChildren(...words.map((word, index) => {
       const $word = document.createElement('span')
       $word.classList.add(Game.ClassNames.Word)
-      $word.textContent = word.content
+      $word.textContent = `${index + 1}. ${word.content}`
       const $points = document.createElement('span')
       $points.classList.add(Game.ClassNames.Points)
       $points.textContent = word.points

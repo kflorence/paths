@@ -23,7 +23,12 @@ export class Cell {
     ])
 
     this.#$content.className = 'content'
-    this.#$element.append(this.#$content)
+
+    const $background = document.createElement('div')
+    $background.classList.add('background')
+    $background.append(this.#$content)
+
+    this.#$element.append($background)
 
     this.update()
   }
@@ -129,7 +134,7 @@ export class Cell {
 
   static FlagsByName = Object.fromEntries(Object.values(Cell.Flags).map((flag) => [flag.name, flag]))
 
-  static StickyFlags = Object.freeze([Cell.Flags.Active, Cell.Flags.Swapped])
+  static StickyFlags = Object.freeze([Cell.Flags.Swapped])
 
   static Name = 'cell'
 
