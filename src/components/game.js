@@ -160,7 +160,6 @@ export class Game {
 
   #updateSelection () {
     const selection = this.#grid.getSelection().filter((cell) => !cell.getFlags().has(Cell.Flags.Swap))
-    console.log(selection)
     $selection.replaceChildren()
     $selection.classList.remove(Game.ClassNames.Valid)
 
