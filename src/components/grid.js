@@ -162,8 +162,7 @@ export class Grid {
   }
 
   #isValid (source, target) {
-    console.log(source, target)
-    return source.isNeighbor(target) && !this.#isCrossing(source, target)
+    return source?.isNeighbor(target) && !this.#isCrossing(source, target)
   }
 
   #getLastPathItem () {
@@ -175,8 +174,7 @@ export class Grid {
     return Grid.#State.fromState(this.#state.get())
   }
 
-  #link () {
-    const lastPathItem = this.#getLastPathItem()
+  #link (lastPathItem) {
     const first = this.#selection[0]
     const last = this.#selection[this.#selection.length - 1]
     // Favor linking the last cell over the first
@@ -250,7 +248,7 @@ export class Grid {
       this.#onSwap(cell, lastCell, flags, selectedIndex, isMultiSelect)
     } else {
       const isNeighbor = cell.isNeighbor(lastCell)
-      const isValid = isNeighbor && this.#isValid(lastCell, cell)
+      const isValid = this.#isValid(lastCell, cell)
       if (isMultiSelect) {
         this.#onSelectMultiple(cell, lastCell, flags, selectedIndex, isValid)
       } else {
@@ -262,10 +260,12 @@ export class Grid {
       flags.push(Cell.FlagsByName[cell.getDirection(lastCell)], Cell.Flags.Selected)
     }
 
-    // Unlink path from previous selection.
-    this.#update([this.#getLastPathItem().getIndex()])
-    if (this.#selection.length && !flags.includes(Cell.Flags.Swap)) {
-      this.#link()
+    const lastPathItem = this.#getLastPathItem()
+    if (lastPathItem) {
+      this.#update([lastPathItem.getIndex()])
+      if (this.#selection.length && !flags.includes(Cell.Flags.Swap)) {
+        this.#link(lastPathItem)
+      }
     }
 
     if (flags.length) {
