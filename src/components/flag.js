@@ -48,4 +48,8 @@ export class Flags {
     })
     return this
   }
+
+  toString (flags) {
+    return flags.flatMap((flag) => this.has(flag) ? [flag.name] : []).join(',')
+  }
 }

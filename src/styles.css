@@ -500,10 +500,10 @@ p.center {
   background-color: rgba(0, 0, 0, 0.2);
 }
 
-/* path is pointing east by default */
-.grid .cell-path:not(.cell-last)::after {
+.grid .cell-path::after {
   box-sizing: border-box;
   content: '';
+  display: none;
   height: 25%;
   left: 50%;
   opacity: 1;
@@ -513,39 +513,47 @@ p.center {
   z-index: -1;
 }
 
-.grid .cell-path.cell-word-end::after {
-  opacity: 0.25;
+.grid .cell-path.cell-direction-east::after {
+  display: block;
+  /* path is pointing east by default */
 }
 
 .grid .cell-path.cell-direction-north::after {
+  display: block;
   transform: rotate(-90deg);
 }
 
 .grid .cell-path.cell-direction-north-east::after {
+  display: block;
   transform: rotate(-45deg);
   width: 200%;
 }
 
 .grid .cell-path.cell-direction-north-west::after {
+  display: block;
   transform: rotate(-135deg);
   width: 200%;
 }
 
 .grid .cell-path.cell-direction-south::after {
+  display: block;
   transform: rotate(90deg);
 }
 
 .grid .cell-path.cell-direction-south-east::after {
+  display: block;
   transform: rotate(45deg);
   width: 200%;
 }
 
 .grid .cell-path.cell-direction-south-west::after {
+  display: block;
   transform: rotate(135deg);
   width: 200%;
 }
 
 .grid .cell-path.cell-direction-west::after {
+  display: block;
   transform: rotate(-180deg);
 }
 
@@ -574,6 +582,10 @@ p.center {
 .grid .cell-validated::after,
 .grid .cell-validated .background {
   background-color: #59FFA0;
+}
+
+.grid .cell-path.cell-word-end::after {
+  opacity: 0.25;
 }
 
 /* https://developers.google.com/fonts/docs/material_icons */

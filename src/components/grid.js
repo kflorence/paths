@@ -153,16 +153,44 @@ export class Grid {
     document.dispatchEvent(new CustomEvent(Grid.Events.Selection, { detail }))
   }
 
-  #isCrossing (lastCell, cell) {
-    const [first, second] = lastCell
+  #isCrossing (source, target) {
+    const [first, second] = source
       .getCoordinates()
-      .getNeighborsCrossing(cell.getCoordinates())
+      .getNeighborsCrossing(target.getCoordinates())
       .map((neighbor) => this.#cells[neighbor.index])
-    return first?.isConnected(second) || false
+    return first?.isConnected(second) || second?.isConnected(first) || false
+  }
+
+  #isValid (source, target) {
+    console.log(source, target)
+    return source.isNeighbor(target) && !this.#isCrossing(source, target)
+  }
+
+  #getLastPathItem () {
+    const state = this.#getState()
+    return this.#cells[state.path[state.path.length - 1]]
   }
 
   #getState () {
     return Grid.#State.fromState(this.#state.get())
+  }
+
+  #link () {
+    const lastPathItem = this.#getLastPathItem()
+    const first = this.#selection[0]
+    const last = this.#selection[this.#selection.length - 1]
+    // Favor linking the last cell over the first
+    const cells = [last]
+    if (!first.equals(last)) {
+      cells.push(first)
+    }
+    const cell = cells
+      .find((cell) => !cell.getFlags().has(Cell.Flags.Swap) && this.#isValid(lastPathItem, cell))
+    if (cell) {
+      // Link this cell to the end of the path.
+      const direction = lastPathItem.getDirection(cell)
+      lastPathItem.update((state) => state.copy({ flags: state.getFlags().add(Cell.FlagsByName[direction]) }))
+    }
   }
 
   #nextLetter () {
@@ -222,16 +250,22 @@ export class Grid {
       this.#onSwap(cell, lastCell, flags, selectedIndex, isMultiSelect)
     } else {
       const isNeighbor = cell.isNeighbor(lastCell)
-      const isCrossing = isNeighbor && this.#isCrossing(lastCell, cell)
+      const isValid = isNeighbor && this.#isValid(lastCell, cell)
       if (isMultiSelect) {
-        this.#onSelectMultiple(cell, lastCell, flags, selectedIndex, isNeighbor, isCrossing)
+        this.#onSelectMultiple(cell, lastCell, flags, selectedIndex, isValid)
       } else {
-        this.#onSelectSingle(cell, lastCell, flags, selectedIndex, isNeighbor, isCrossing)
+        this.#onSelectSingle(cell, lastCell, flags, selectedIndex, isNeighbor, isValid)
       }
     }
 
     if (flags.includes(Cell.Flags.Path)) {
       flags.push(Cell.FlagsByName[cell.getDirection(lastCell)], Cell.Flags.Selected)
+    }
+
+    // Unlink path from previous selection.
+    this.#update([this.#getLastPathItem().getIndex()])
+    if (this.#selection.length && !flags.includes(Cell.Flags.Swap)) {
+      this.#link()
     }
 
     if (flags.length) {
@@ -242,18 +276,18 @@ export class Grid {
     }
   }
 
-  #onSelectMultiple (cell, lastCell, flags, selectedIndex, isNeighbor, isCrossing) {
+  #onSelectMultiple (cell, lastCell, flags, selectedIndex, isValid) {
     if (selectedIndex >= 0) {
       console.debug('SelectMultiple: Re-selecting a previously selected cell. De-select everything after it.')
       this.#deselect(this.#selection.splice(selectedIndex + 1))
-    } else if (isNeighbor && !isCrossing) {
+    } else if (isValid) {
       console.debug('SelectMultiple: A valid new cell has been selected.')
       this.#selection.push(cell)
       flags.push(Cell.Flags.Path)
     }
   }
 
-  #onSelectSingle (cell, lastCell, flags, selectedIndex, isNeighbor, isCrossing) {
+  #onSelectSingle (cell, lastCell, flags, selectedIndex, isNeighbor, isValid) {
     if (selectedIndex >= 0) {
       // An already selected cell was tapped.
       if (this.#selection.length === 1 && !cell.getFlags().has(Cell.Flags.Swapped)) {
@@ -270,11 +304,13 @@ export class Grid {
         }
       }
     } else if (!isNeighbor) {
-      console.debug('SelectSingle: A non-neighboring cell has been selected. De-select everything else.')
-      this.#deselect(this.#selection.splice(0))
+      if (this.#selection.length) {
+        console.debug('SelectSingle: A non-neighboring cell has been selected. De-select everything else.')
+        this.#deselect(this.#selection.splice(0))
+      }
       this.#selection.push(cell)
       flags.push(Cell.Flags.Selected)
-    } else if (!isCrossing) {
+    } else if (isValid) {
       console.debug('SelectSingle: A valid new cell has been selected.')
       this.#selection.push(cell)
       flags.push(Cell.Flags.Path)
@@ -352,7 +388,7 @@ export class Grid {
         if (nextCellIndex !== undefined) {
           // Link current cell to next cell
           const nextCell = this.#cells[nextCellIndex]
-          flags.add(Cell.FlagsByName[cell.getCoordinates().getDirection(nextCell.getCoordinates())])
+          flags.add(Cell.FlagsByName[cell.getDirection(nextCell)])
         }
 
         if (pathIndex === 0) {
@@ -413,13 +449,14 @@ export class Grid {
 
     if (lastPathItemIndex !== undefined) {
       const lastCell = this.#cells[lastPathItemIndex]
-      const neighborIndex = [0, lastSelectionIndex].find((index) => lastCell.isNeighbor(selection[index]))
-      if (neighborIndex === undefined) {
-        console.debug('Selection does not start or begin as a neighbor of an existing path item, ignoring')
+      // Favor connecting the last cell selected over the first to match selection UI
+      const validIndex = [lastSelectionIndex, 0].find((index) => this.#isValid(lastCell, selection[index]))
+      if (validIndex === undefined) {
+        console.debug('Selection is not valid for submission, de-selecting.')
         this.#deselect(selection)
         return
-      } else if (neighborIndex === lastSelectionIndex) {
-        console.debug('Selection drawn in reverse')
+      } else if (validIndex === lastSelectionIndex) {
+        console.debug('Selection drawn in reverse.')
         // Selection was drawn in reverse
         indexes.reverse()
       }
@@ -437,12 +474,6 @@ export class Grid {
       // Word indexes are pushed in the correct order to spell the word
       state.words.push(Grid.getIndexes(selection))
       this.#setState(state)
-
-      if (lastPathItemIndex !== undefined) {
-        // When adding to an existing path, also update the previous last cell. This will allow the cell to be linked
-        // to the newly added cells.
-        indexes.push(lastPathItemIndex)
-      }
     }
 
     this.#update(indexes)
