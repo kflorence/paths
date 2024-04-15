@@ -149,8 +149,26 @@ export class Grid {
 
   #deselect (selection) {
     selection.forEach((cell) => cell.reset())
-    const detail = { selection: this.getSelection() }
-    document.dispatchEvent(new CustomEvent(Grid.Events.Selection, { detail }))
+    const lastPathItem = this.#getLastPathItem()
+    if (lastPathItem) {
+      this.#update([lastPathItem.getIndex()])
+    }
+    this.#dispatch(Grid.Events.Selection)
+  }
+
+  #dispatch (name, detail = null) {
+    const event = new CustomEvent(name, { detail })
+    // Ensure event is emitted after any currently processing events have been handled
+    setTimeout(() => document.dispatchEvent(event))
+  }
+
+  #getLastPathItem () {
+    const state = this.#getState()
+    return this.#cells[state.path[state.path.length - 1]]
+  }
+
+  #getState () {
+    return Grid.#State.fromState(this.#state.get())
   }
 
   #isCrossing (source, target) {
@@ -163,15 +181,6 @@ export class Grid {
 
   #isValid (source, target) {
     return source?.isNeighbor(target) && !this.#isCrossing(source, target)
-  }
-
-  #getLastPathItem () {
-    const state = this.#getState()
-    return this.#cells[state.path[state.path.length - 1]]
-  }
-
-  #getState () {
-    return Grid.#State.fromState(this.#state.get())
   }
 
   #link (lastPathItem) {
@@ -270,9 +279,7 @@ export class Grid {
 
     if (flags.length) {
       cell.update((state) => state.copy({ flags: state.getFlags().add(...flags) }))
-
-      const detail = { selection: this.getSelection() }
-      document.dispatchEvent(new CustomEvent(Grid.Events.Selection, { detail }))
+      this.#dispatch(Grid.Events.Selection)
     }
   }
 
@@ -429,8 +436,7 @@ export class Grid {
 
     this.#pointerIndex = lastPathIndex
 
-    const detail = { swaps: this.getSwaps(), words: this.getWords() }
-    document.dispatchEvent(new CustomEvent(Grid.Events.Update, { detail }))
+    this.#dispatch(Grid.Events.Update)
   }
 
   /**
@@ -440,8 +446,8 @@ export class Grid {
     const selection = Array.from(this.#selection)
     const indexes = Grid.getIndexes(selection)
 
-    // Empty the selection
-    this.#selection = []
+    // First, de-select everything
+    this.#deselect(this.#selection.splice(0))
 
     const state = this.#getState()
     const lastPathItemIndex = state.path[state.path.length - 1]
@@ -452,8 +458,7 @@ export class Grid {
       // Favor connecting the last cell selected over the first to match selection UI
       const validIndex = [lastSelectionIndex, 0].find((index) => this.#isValid(lastCell, selection[index]))
       if (validIndex === undefined) {
-        console.debug('Selection is not valid for submission, de-selecting.')
-        this.#deselect(selection)
+        console.debug('Selection is invalid.')
         return
       } else if (validIndex === lastSelectionIndex) {
         console.debug('Selection drawn in reverse.')
@@ -474,6 +479,11 @@ export class Grid {
       // Word indexes are pushed in the correct order to spell the word
       state.words.push(Grid.getIndexes(selection))
       this.#setState(state)
+    }
+
+    if (lastPathItemIndex) {
+      // Ensure the last path item stays linked, if present.
+      indexes.push(lastPathItemIndex)
     }
 
     this.#update(indexes)
