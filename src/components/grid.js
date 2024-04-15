@@ -133,6 +133,7 @@ export class Grid {
   }
 
   #activate (cell) {
+    this.#deactivate()
     cell.update((state) => state.copy({ flags: state.getFlags().add(Cell.Flags.Active) }))
     this.#active = cell
   }
@@ -150,6 +151,14 @@ export class Grid {
     selection.forEach((cell) => cell.reset())
     const detail = { selection: this.getSelection() }
     document.dispatchEvent(new CustomEvent(Grid.Events.Selection, { detail }))
+  }
+
+  #isCrossing (lastCell, cell) {
+    const [first, second] = lastCell
+      .getCoordinates()
+      .getNeighborsCrossing(cell.getCoordinates())
+      .map((neighbor) => this.#cells[neighbor.index])
+    return first?.isConnected(second) || false
   }
 
   #getState () {
@@ -187,103 +196,107 @@ export class Grid {
 
   #onSelect (event) {
     const cell = event.detail.cell
+
+    this.#activate(cell)
+
     if (cell.getFlags().has(Cell.Flags.Validated)) {
       // These cells cannot be selected
       return
     }
 
-    const flags = []
-    this.#deactivate()
-    this.#activate(cell)
-
     // User is doing a multi-select if multiple onSelect events have been fired before pointerup resets selectionStart.
     const isMultiSelect = this.#selectionStart !== undefined
     if (!isMultiSelect) {
-      // The first selection event, assume it's a tap.
+      // Save a reference to the first selection event.
       this.#selectionStart = new Grid.SelectionStart(event, this.#selection.length)
-    }
-
-    if (isMultiSelect && this.#selection.length === 0) {
-      // Selection was cleared during multi-select, wait for pointerup to resume.
+    } else if (this.#selection.length === 0) {
+      console.debug('SelectMultiple: Selection was cleared during multi-select. Wait for pointerup before continuing.')
       return
     }
 
+    const flags = []
+    const lastCell = this.#selection[this.#selection.length - 1]
     const selectedIndex = this.#selection.findIndex((selected) => selected.equals(cell))
-    if (selectedIndex >= 0) {
-      // An already selected cell was selected again.
-      if (this.#selection.length > 1) {
-        // User has multiple cells selected.
-        if (selectedIndex === this.#selection.length - 1) {
-          // User tapped the last selected cell.
-          if (!isMultiSelect) {
-            // Only validate on tap, not multi-select, which will be validated on pointerup.
-            this.#validate()
-          }
-        } else {
-          // User tapped a previous cell. De-select everything after the selected cell.
-          this.#deselect(this.#selection.splice(selectedIndex + 1))
-        }
-      } else if (!isMultiSelect) {
-        // User has re-tapped a single, selected cell.
-        if (cell.getFlags().has(Cell.Flags.Swap, Cell.Flags.Swapped)) {
-          // User tapped a cell marked for swap, or already swapped. De-select it.
-          this.#deselect(this.#selection.splice(0))
-        } else {
-          flags.push(Cell.Flags.Swap)
-        }
-      }
+
+    if (lastCell?.getFlags().has(Cell.Flags.Swap)) {
+      this.#onSwap(cell, lastCell, flags, selectedIndex, isMultiSelect)
     } else {
-      flags.push(Cell.Flags.Selected)
-
-      if (this.#selection.length > 0 && !flags.some((flag) => flag === Cell.Flags.Swap)) {
-        const lastSelectedCell = this.#selection[this.#selection.length - 1]
-        if (lastSelectedCell.getFlags().has(Cell.Flags.Swap)) {
-          // Previous cell was marked for swap.
-          if (isMultiSelect) {
-            // User is initiating a multi-select. De-select all.
-            this.#deselect(this.#selection.splice(0))
-            return
-          } else {
-            // A single cell was tapped.
-            flags.push(Cell.Flags.Swap)
-          }
-        } else {
-          // Not dealing with a swap.
-          const cellCoordinates = cell.getCoordinates()
-          const cellNeighbors = cellCoordinates.getNeighbors()
-          const lastSelectedCellCoordinates = lastSelectedCell.getCoordinates()
-
-          const isNeighbor = cellNeighbors.some((neighbor) => neighbor.coordinates.equals(lastSelectedCellCoordinates))
-          if (isNeighbor) {
-            // Selected cell is a neighbor of the last selected cell.
-            const state = this.#getState()
-            const direction = cellCoordinates.getDirection(lastSelectedCellCoordinates)
-            const occupiedDirections = cellNeighbors
-              .filter((neighbor) => state.path.includes(neighbor.index))
-              .map((neighbor) => neighbor.direction)
-            if (Coordinates.isCrossing(direction, occupiedDirections)) {
-              // Selected path would cross existing path. Selection is invalid.
-              return
-            } else {
-              flags.push(Cell.Flags.Path, Cell.FlagsByName[direction])
-            }
-          } else if (isMultiSelect) {
-            // Selected cell is not a neighbor, since this is a multi-select, just ignore it.
-            return
-          } else {
-            // A non-neighbor cell was tapped. De-select anything previously selected.
-            this.#deselect(this.#selection.splice(0))
-          }
-        }
+      const isNeighbor = cell.isNeighbor(lastCell)
+      const isCrossing = isNeighbor && this.#isCrossing(lastCell, cell)
+      if (isMultiSelect) {
+        this.#onSelectMultiple(cell, lastCell, flags, selectedIndex, isNeighbor, isCrossing)
+      } else {
+        this.#onSelectSingle(cell, lastCell, flags, selectedIndex, isNeighbor, isCrossing)
       }
+    }
 
-      this.#selection.push(cell)
+    if (flags.includes(Cell.Flags.Path)) {
+      flags.push(Cell.FlagsByName[cell.getDirection(lastCell)], Cell.Flags.Selected)
+    }
+
+    if (flags.length) {
+      cell.update((state) => state.copy({ flags: state.getFlags().add(...flags) }))
 
       const detail = { selection: this.getSelection() }
       document.dispatchEvent(new CustomEvent(Grid.Events.Selection, { detail }))
     }
+  }
 
-    cell.update((state) => state.copy({ flags: state.getFlags().add(...flags) }))
+  #onSelectMultiple (cell, lastCell, flags, selectedIndex, isNeighbor, isCrossing) {
+    if (selectedIndex >= 0) {
+      console.debug('SelectMultiple: Re-selecting a previously selected cell. De-select everything after it.')
+      this.#deselect(this.#selection.splice(selectedIndex + 1))
+    } else if (isNeighbor && !isCrossing) {
+      console.debug('SelectMultiple: A valid new cell has been selected.')
+      this.#selection.push(cell)
+      flags.push(Cell.Flags.Path)
+    }
+  }
+
+  #onSelectSingle (cell, lastCell, flags, selectedIndex, isNeighbor, isCrossing) {
+    if (selectedIndex >= 0) {
+      // An already selected cell was tapped.
+      if (this.#selection.length === 1 && !cell.getFlags().has(Cell.Flags.Swapped)) {
+        console.debug('SelectSingle: A non-swapped selected cell has been re-tapped. Mark for swap.')
+        flags.push(Cell.Flags.Swap)
+      } else {
+        const lastSelectionIndex = this.#selection.length - 1
+        if (this.#selection.length > Word.minimumLength && selectedIndex === lastSelectionIndex) {
+          console.debug('SelectSingle: Submitting selection for validation.')
+          this.#validate()
+        } else {
+          console.debug('SelectSingle: Re-selecting a previously selected cell. De-select everything after it.')
+          this.#deselect(this.#selection.splice(selectedIndex + 1))
+        }
+      }
+    } else if (!isNeighbor) {
+      console.debug('SelectSingle: A non-neighboring cell has been selected. De-select everything else.')
+      this.#deselect(this.#selection.splice(0))
+      this.#selection.push(cell)
+      flags.push(Cell.Flags.Selected)
+    } else if (!isCrossing) {
+      console.debug('SelectSingle: A valid new cell has been selected.')
+      this.#selection.push(cell)
+      flags.push(Cell.Flags.Path)
+    }
+  }
+
+  #onSwap (cell, lastCell, flags, selectedIndex, isMultiSelect) {
+    if (isMultiSelect) {
+      console.debug('Swap: Multiple target cells selected. De-selecting everything except source cell.')
+      this.#deselect(this.#selection.splice(1))
+    } else if (
+      // User tapped a cell marked for swap or already swapped
+      cell.getFlags().has(Cell.Flags.Swap, Cell.Flags.Swapped) ||
+      // User tapped a cell with the same content as the cell marked for swap
+      cell.getContent() === lastCell.getContent()) {
+      console.debug('Swap: Invalid target cell selected. Cancelling swap.')
+      this.#deselect(this.#selection.splice(0))
+    } else if (!cell.getFlags().has(Cell.Flags.Swapped)) {
+      console.debug('Swap: Valid target cell selected. Initating swap.')
+      flags.push(Cell.Flags.Swap)
+      this.#selection.push(cell)
+    }
   }
 
   #setState (state) {

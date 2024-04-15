@@ -31,10 +31,12 @@ export class Word {
   }
 
   static isValid (word) {
-    return word.length > 2 && words.includes(word)
+    return word.length > Word.minimumLength && words.includes(word)
   }
 
   static widthMultiplier (width) {
     return Math.floor(width / 2)
   }
+
+  static minimumLength = 2
 }

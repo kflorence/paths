@@ -45,6 +45,10 @@ export class Cell {
     return this.#coordinates
   }
 
+  getDirection (other) {
+    return this.getCoordinates().getDirection(other.getCoordinates())
+  }
+
   getElement () {
     return this.#$element
   }
@@ -57,8 +61,12 @@ export class Cell {
     return this.#state.index
   }
 
+  isConnected (other) {
+    return this.getFlags().has(Cell.FlagsByName[this.getDirection(other)], Cell.FlagsByName[other.getDirection(this)])
+  }
+
   isNeighbor (other) {
-    return this.getCoordinates().isNeighbor(other.getCoordinates())
+    return this.getCoordinates().isNeighbor(other?.getCoordinates())
   }
 
   reset () {

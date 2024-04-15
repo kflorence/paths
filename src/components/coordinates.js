@@ -40,7 +40,7 @@ export class Coordinates {
   }
 
   equals (other) {
-    return this.id === other.id
+    return this.id === other?.id
   }
 
   getDirection (other) {
@@ -49,6 +49,11 @@ export class Coordinates {
 
   getNeighbors () {
     return this.#neighbors ?? (this.#neighbors = Coordinates.getNeighbors(this))
+  }
+
+  getNeighborsCrossing (other) {
+    const crossing = Coordinates.Crossings[this.getDirection(other)] ?? []
+    return this.getNeighbors().filter((neighbor) => crossing.includes(neighbor.direction))
   }
 
   isNeighbor (other) {
@@ -62,10 +67,6 @@ export class Coordinates {
   static getNeighbors (coordinates) {
     return Coordinates.Neighbors
       .map((neighbor) => new Coordinates.Neighbor(neighbor.direction, coordinates.add(neighbor.coordinates)))
-  }
-
-  static isCrossing (direction, occupiedDirections) {
-    return Coordinates.Crossings[direction]?.every((direction) => occupiedDirections.includes(direction))
   }
 
   static Crossings = Object.freeze({
