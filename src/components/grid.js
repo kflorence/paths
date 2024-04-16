@@ -247,6 +247,13 @@ export class Grid {
   }
 
   #onSelect (event) {
+    if (!this.#selectionStart && event.detail.event.type !== 'pointerdown') {
+      console.debug('Ignoring cell events prior to pointerdown.')
+      // Mobile sends out a 'pointerenter' event before the first 'pointerdown'.
+      // Ignore it, otherwise onSelect will get called multiple times for a single touch.
+      return
+    }
+
     const cell = event.detail.cell
 
     this.#activate(cell)

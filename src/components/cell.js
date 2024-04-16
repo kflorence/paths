@@ -107,13 +107,14 @@ export class Cell {
 
   #onSelect (event) {
     if (event.type === 'pointerdown') {
+      // Release pointer capture on target so other cells can receive events.
       event.target.releasePointerCapture(event.pointerId)
     }
 
     if (event.buttons > 0) {
       // User has clicked or touched the cell
-      const detail = { cell: this }
-      $grid.dispatchEvent(new CustomEvent(Cell.Events.Select, { detail }))
+      const detail = { cell: this, event }
+      setTimeout(() => $grid.dispatchEvent(new CustomEvent(Cell.Events.Select, { detail })))
     }
   }
 
