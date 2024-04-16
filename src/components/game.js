@@ -24,7 +24,7 @@ const $words = document.getElementById('words')
 const crypto = window.crypto
 const tippy = Tippy($share, { content: 'Copied!', theme: 'custom', trigger: 'manual' })
 
-if (State.params.has(State.Params.State)) {
+if (State.params.has(Grid.StateParam.name)) {
   document.body.classList.add('share')
 }
 

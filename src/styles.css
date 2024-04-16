@@ -225,6 +225,12 @@ p.center {
   padding: 1em;
 }
 
+#footer {
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+}
+
 #letter-points .letters {
   text-transform: uppercase;
 }
@@ -652,6 +658,11 @@ p.center {
   padding: 0.25em 0.5em;
   text-align: center;
   text-transform: uppercase;
+}
+
+.share #share,
+.share #settings {
+  display: none;
 }
 
 .tippy-box[data-theme~='custom'] {

@@ -1,5 +1,6 @@
 import { base64decode, base64encode } from './util'
 
+const history = window.history
 const localStorage = window.localStorage
 const location = window.location
 
@@ -15,7 +16,7 @@ export class State {
     this.#ephemeral = options.ephemeral === true
     this.#value = structuredClone(value)
 
-    if (key !== undefined) {
+    if (!this.#ephemeral && key !== undefined) {
       const value = localStorage.getItem(key)
       if (value) {
         console.debug(`Found local cache for key '${key}'.`, value)
@@ -90,6 +91,23 @@ export class State {
 
   static reload () {
     location.assign(State.url.search)
+  }
+
+  static set (param, value) {
+    if (!State.params.has(param.name)) {
+      return
+    }
+
+    if (param.isJson) {
+      value = JSON.stringify(value)
+    }
+
+    if (param.isEncoded) {
+      value = State.encode(value)
+    }
+
+    State.params.set(param.name, value)
+    history.pushState({ [param.name]: value }, '', State.url)
   }
 
   static Param = class {

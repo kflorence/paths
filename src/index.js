@@ -5,4 +5,11 @@ if (process.env.NODE_ENV === 'production') {
   require('./components/analytics')
 }
 
-window.game = new Game()
+const game = new Game()
+
+window.addEventListener('popstate', (event) => {
+  // Handle user navigating through history
+  window.location.reload()
+})
+
+window.game = game

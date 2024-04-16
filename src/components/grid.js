@@ -10,6 +10,7 @@ import { letters } from './letter'
 const $grid = document.getElementById('grid')
 
 export class Grid {
+  ephemeral
   id
   size
   width
@@ -27,16 +28,15 @@ export class Grid {
 
   constructor () {
     const ephemeral = State.params.has(State.Params.State)
-    const state = ephemeral
-      ? Grid.#State.fromState(State.get(new State.Param(State.Params.State, true, true)))
-      : Grid.#State.fromParams()
+    const state = ephemeral ? Grid.#State.fromState(State.get(Grid.StateParam)) : Grid.#State.fromParams()
 
+    this.ephemeral = ephemeral
     this.id = state.id
     this.width = state.width
     this.size = this.width * this.width
     this.#seed = state.getSeed()
     this.#rand = Grid.splitmix32(this.#seed)
-    this.#state = new State(this.#seed, state, ephemeral)
+    this.#state = new State(this.#seed, state, { ephemeral })
 
     $grid.dataset.width = this.width
 
@@ -374,6 +374,10 @@ export class Grid {
 
   #setState (state) {
     this.#state.set(state)
+    if (this.ephemeral) {
+      // Update the state URL param
+      State.set(Grid.StateParam, state)
+    }
   }
 
   #swap (source, target) {
@@ -635,6 +639,8 @@ export class Grid {
       return new Grid.#State(state.id, state.width, state.path, state.swaps, state.words)
     }
   }
+
+  static StateParam = new State.Param(State.Params.State, true, true)
 
   static Statistics = class {
     averageWordLength
