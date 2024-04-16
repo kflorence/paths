@@ -138,6 +138,15 @@ export class Grid {
     this.#active = cell
   }
 
+  #anchorSelection (lastPathItem) {
+    const anchor = this.#selection[this.#getSelectionAnchorIndex(lastPathItem)]
+    if (anchor) {
+      // Visually anchor the selection to the end of the path.
+      const direction = lastPathItem.getDirection(anchor)
+      lastPathItem.update((state) => state.copy({ flags: state.getFlags().add(Cell.FlagsByName[direction]) }))
+    }
+  }
+
   #deactivate () {
     if (!this.#active) {
       return
@@ -167,37 +176,45 @@ export class Grid {
     return this.#cells[state.path[state.path.length - 1]]
   }
 
+  #getSelectionAnchorIndex (lastPathItem) {
+    if (this.#selection.length === 0) {
+      return
+    }
+
+    lastPathItem ??= this.#getLastPathItem()
+    if (!lastPathItem) {
+      return
+    }
+
+    // Try to anchor at the head of the selection first.
+    const indexes = [0]
+    const lastIndex = this.#selection.length - 1
+    if (lastIndex !== 0) {
+      indexes.push(lastIndex)
+    }
+
+    return indexes.find((index) => {
+      const cell = this.#selection[index]
+      return !cell.getFlags().has(Cell.Flags.Swap) && this.#isValid(lastPathItem, cell)
+    }) ?? -1
+  }
+
   #getState () {
     return Grid.#State.fromState(this.#state.get())
   }
 
   #isCrossing (source, target) {
+    // Get the neighbors that if connected would cause the path to cross
     const [first, second] = source
       .getCoordinates()
       .getNeighborsCrossing(target.getCoordinates())
       .map((neighbor) => this.#cells[neighbor.index])
+    // Check both of them to see if they are connected to the other one in any direction.
     return first?.isConnected(second) || second?.isConnected(first) || false
   }
 
   #isValid (source, target) {
     return source?.isNeighbor(target) && !this.#isCrossing(source, target)
-  }
-
-  #link (lastPathItem) {
-    const first = this.#selection[0]
-    const last = this.#selection[this.#selection.length - 1]
-    // Favor linking the last cell over the first
-    const cells = [last]
-    if (!first.equals(last)) {
-      cells.push(first)
-    }
-    const cell = cells
-      .find((cell) => !cell.getFlags().has(Cell.Flags.Swap) && this.#isValid(lastPathItem, cell))
-    if (cell) {
-      // Link this cell to the end of the path.
-      const direction = lastPathItem.getDirection(cell)
-      lastPathItem.update((state) => state.copy({ flags: state.getFlags().add(Cell.FlagsByName[direction]) }))
-    }
   }
 
   #nextLetter () {
@@ -271,9 +288,10 @@ export class Grid {
 
     const lastPathItem = this.#getLastPathItem()
     if (lastPathItem) {
+      // Update the visual anchor of selection to path.
       this.#update([lastPathItem.getIndex()])
       if (this.#selection.length && !flags.includes(Cell.Flags.Swap)) {
-        this.#link(lastPathItem)
+        this.#anchorSelection(lastPathItem)
       }
     }
 
@@ -443,50 +461,48 @@ export class Grid {
    * Responsible for validating a selection of cells by index to see if the user has spelled a valid word.
    */
   #validate () {
-    const selection = Array.from(this.#selection)
-    const indexes = Grid.getIndexes(selection)
-
-    // First, de-select everything
-    this.#deselect(this.#selection.splice(0))
-
-    const state = this.#getState()
-    const lastPathItemIndex = state.path[state.path.length - 1]
-    const lastSelectionIndex = selection.length - 1
-
-    if (lastPathItemIndex !== undefined) {
-      const lastCell = this.#cells[lastPathItemIndex]
-      // Favor connecting the last cell selected over the first to match selection UI
-      const validIndex = [lastSelectionIndex, 0].find((index) => this.#isValid(lastCell, selection[index]))
-      if (validIndex === undefined) {
-        console.debug('Selection is invalid.')
-        return
-      } else if (validIndex === lastSelectionIndex) {
-        console.debug('Selection drawn in reverse.')
-        // Selection was drawn in reverse
-        indexes.reverse()
+    const pathIndexes = Grid.getIndexes(this.#selection)
+    const lastPathItem = this.#getLastPathItem()
+    if (lastPathItem) {
+      // Make sure the selection can anchor to the existing path.
+      const selectionAnchorIndex = this.#getSelectionAnchorIndex(lastPathItem)
+      if (selectionAnchorIndex < 0) {
+        console.debug('Unable to anchor selection to existing path.')
+        pathIndexes.splice(0)
+      } else if (selectionAnchorIndex !== 0) {
+        console.debug('Anchoring selection at end.')
+        // Reverse pathIndexes to ensure they get stored in state in the proper order.
+        pathIndexes.reverse()
+      } else {
+        console.debug('Anchoring selection at beginning.')
       }
     }
 
-    let content = Grid.getContent(selection)
-    if (!Word.isValid(content)) {
-      // Try the selection in reverse
-      content = Grid.getContent(selection.reverse())
+    if (pathIndexes.length) {
+      const wordCells = Array.from(this.#selection)
+      let content = Grid.getContent(wordCells)
+      if (!Word.isValid(content)) {
+        // Try the selection in reverse
+        content = Grid.getContent(wordCells.reverse())
+      }
+
+      if (Word.isValid(content)) {
+        const state = this.#getState()
+
+        // Path indexes correspond to the selection as it was anchored to the existing path
+        state.path.push(...pathIndexes)
+
+        // Word indexes correspond to the order in which the word was spelled
+        state.words.push(Grid.getIndexes(wordCells))
+
+        this.#setState(state)
+      }
     }
 
-    if (Word.isValid(content)) {
-      // Path indexes are pushed in relative distance to the last neighbor
-      state.path.push(...indexes)
-      // Word indexes are pushed in the correct order to spell the word
-      state.words.push(Grid.getIndexes(selection))
-      this.#setState(state)
-    }
-
-    if (lastPathItemIndex) {
-      // Ensure the last path item stays linked, if present.
-      indexes.push(lastPathItemIndex)
-    }
-
-    this.#update(indexes)
+    // If there is an existing last path item, include it in the update so it gets properly linked.
+    const indexesToUpdate = lastPathItem ? pathIndexes.concat([lastPathItem.getIndex()]) : pathIndexes
+    this.#deselect(this.#selection.splice(0))
+    this.#update(indexesToUpdate)
   }
 
   /**
