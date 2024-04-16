@@ -309,6 +309,8 @@ export class Grid {
       console.debug('SelectMultiple: A valid new cell has been selected.')
       this.#selection.push(cell)
       flags.push(Cell.Flags.Path)
+    } else {
+      console.debug('SelectMultiple: Invalid cell selected. Ignoring.')
     }
   }
 
@@ -339,6 +341,8 @@ export class Grid {
       console.debug('SelectSingle: A valid new cell has been selected.')
       this.#selection.push(cell)
       flags.push(Cell.Flags.Path)
+    } else {
+      console.debug('SelectSingle: Invalid cell selected. Ignoring.')
     }
   }
 
@@ -350,7 +354,8 @@ export class Grid {
       // User tapped a cell marked for swap or already swapped
       cell.getFlags().has(Cell.Flags.Swap, Cell.Flags.Swapped) ||
       // User tapped a cell with the same content as the cell marked for swap
-      cell.getContent() === lastCell.getContent()) {
+      cell.getContent() === lastCell.getContent()
+    ) {
       console.debug('Swap: Invalid target cell selected. Cancelling swap.')
       this.#deselect(this.#selection.splice(0))
     } else if (!cell.getFlags().has(Cell.Flags.Swapped)) {

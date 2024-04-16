@@ -654,11 +654,6 @@ p.center {
   text-transform: uppercase;
 }
 
-.share .delete,
-.share #settings {
-  display: none;
-}
-
 .tippy-box[data-theme~='custom'] {
   background-color: #A7A9A4;
   color: black;

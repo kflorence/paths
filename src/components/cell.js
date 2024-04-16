@@ -62,8 +62,7 @@ export class Cell {
   }
 
   isConnected (other) {
-    const directions = [this.getDirection(other), other.getDirection(this)]
-    return this.getFlags().has(...directions.map((direction) => Cell.FlagsByName[direction]))
+    return this.getFlags().has(Cell.FlagsByName[this.getDirection(other)])
   }
 
   isNeighbor (other) {
