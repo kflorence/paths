@@ -65,6 +65,10 @@ export class Grid {
     ])
   }
 
+  getMoves () {
+    return this.#getState().moves
+  }
+
   getSelection () {
     return Array.from(this.#selection)
   }
@@ -95,6 +99,12 @@ export class Grid {
 
     // Remove the swap
     const swap = state.swaps.splice(index, 1)[0]
+
+    // Update moves
+    const move = [Grid.Moves.Swap, index].join(':')
+    const moveIndex = state.moves.findIndex((m) => move === m)
+    state.moves.splice(moveIndex, 1)
+
     this.#setState(state)
 
     // If one of the swapped cells was part of a word, remove the word, too.
@@ -114,22 +124,45 @@ export class Grid {
     const earliestPathIndex = state.path.findIndex((index) => firstRemovedWord.indexOf(index) >= 0)
 
     // Remove everything after and including the first matched path index.
-    const indexes = state.path.splice(earliestPathIndex)
+    const pathIndexes = state.path.splice(earliestPathIndex)
+
+    // Update moves
+    state.moves = state.moves.filter((move) => {
+      const [type, wordIndex] = move.split(':')
+      // Remove any spell moves including and after the removed word index
+      return !(type === Grid.Moves.Spell && wordIndex >= index)
+    })
 
     this.#setState(state)
 
     const lastPathItemIndex = state.path[state.path.length - 1]
     if (lastPathItemIndex !== undefined) {
       // Also update the last path item so the link can be removed.
-      indexes.push(lastPathItemIndex)
+      pathIndexes.push(lastPathItemIndex)
     }
 
-    this.#update(indexes)
+    this.#update(pathIndexes)
   }
 
   reset () {
     this.#setState(new Grid.#State(this.id, this.width))
     this.#update(Grid.getIndexes(this.#cells))
+  }
+
+  undo () {
+    const state = this.#getState()
+    if (state.moves.length === 0) {
+      return
+    }
+    const [type, index] = state.moves[state.moves.length - 1].split(':')
+    switch (type) {
+      case Grid.Moves.Spell:
+        this.removeWord(index)
+        break
+      case Grid.Moves.Swap:
+        this.removeSwap(index)
+        break
+    }
   }
 
   #activate (cell) {
@@ -366,7 +399,7 @@ export class Grid {
       console.debug('Swap: Invalid target cell selected. Cancelling swap.')
       this.#deselect(this.#selection.splice(0))
     } else if (!cell.getFlags().has(Cell.Flags.Swapped)) {
-      console.debug('Swap: Valid target cell selected. Initating swap.')
+      console.debug('Swap: Valid target cell selected. Initiating swap.')
       flags.push(Cell.Flags.Swap)
       this.#selection.push(cell)
     }
@@ -383,16 +416,10 @@ export class Grid {
   #swap (source, target) {
     const state = this.#getState()
     const swap = [source.getIndex(), target.getIndex()]
-    const unswap = Array.from(swap).reverse()
+    state.swaps.push(swap)
 
-    // Check to see if this is an un-swap
-    const unswapIndex = state.swaps.findIndex((swap) => swap.every((value, index) => unswap[index] === value))
-
-    if (unswapIndex < 0) {
-      state.swaps.push(swap)
-    } else {
-      state.swaps.splice(unswapIndex, 1)
-    }
+    // Update moves
+    state.moves.push([Grid.Moves.Swap, state.swaps.length - 1].join(':'))
 
     this.#setState(state)
     this.#update(swap)
@@ -511,6 +538,9 @@ export class Grid {
         // Word indexes correspond to the order in which the word was spelled
         state.words.push(Grid.getIndexes(wordCells))
 
+        // Update moves
+        state.moves.push([Grid.Moves.Spell, state.words.length - 1].join(':'))
+
         this.#setState(state)
       }
     }
@@ -567,6 +597,11 @@ export class Grid {
     }
   }
 
+  static Moves = Object.freeze({
+    Spell: 'spell',
+    Swap: 'swap'
+  })
+
   static Name = 'grid'
   static DefaultId = (() => {
     // The ID for the daily puzzle
@@ -598,21 +633,19 @@ export class Grid {
 
   static #State = class {
     id
+    moves
     path
     swaps
     width
     words
 
-    constructor (id, width, path, swaps, words) {
+    constructor (id, width, path, swaps, words, moves) {
       this.id = id
-      this.width = Number(width)
-      if (!Grid.Widths.includes(this.width)) {
-        this.width = Grid.DefaultWidth
-      }
-
+      this.width = Grid.Widths.includes(width) ? width : Grid.DefaultWidth
       this.path = path ?? []
       this.swaps = swaps ?? []
       this.words = words ?? []
+      this.moves = moves ?? []
     }
 
     getSeed () {
@@ -636,7 +669,7 @@ export class Grid {
     }
 
     static fromState (state) {
-      return new Grid.#State(state.id, state.width, state.path, state.swaps, state.words)
+      return new Grid.#State(state.id, state.width, state.path, state.swaps, state.words, state.moves)
     }
   }
 

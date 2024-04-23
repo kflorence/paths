@@ -18,6 +18,7 @@ const $selection = document.getElementById('selection')
 const $share = document.getElementById('share')
 const $statistics = document.getElementById('statistics')
 const $swaps = document.getElementById('swaps')
+const $undo = document.getElementById('undo')
 const $width = document.getElementById('width')
 const $words = document.getElementById('words')
 
@@ -53,6 +54,7 @@ export class Game {
       { type: 'click', element: $reset, handler: this.reset },
       { type: 'click', element: $share, handler: this.share },
       { type: 'click', element: $swaps, handler: this.#deleteSwap },
+      { type: 'click', element: $undo, handler: this.#onUndo },
       { type: 'click', element: $words, handler: this.#deleteWord },
       { type: Grid.Events.Selection, handler: this.#updateSelection },
       { type: Grid.Events.Update, handler: this.#onGridUpdate }
@@ -110,6 +112,7 @@ export class Game {
     this.#updateWords()
     this.#updateStatistics()
     this.#updateSwaps()
+    this.#updateUndo()
   }
 
   #deleteSwap (event) {
@@ -139,6 +142,12 @@ export class Game {
     const state = this.#state.get()
     state.includeStateInShareUrl = event.target.checked
     this.#state.set(state)
+  }
+
+  #onUndo () {
+    if (!$undo.classList.contains(Game.ClassNames.Disabled)) {
+      this.#grid.undo()
+    }
   }
 
   #onWidthChange (event) {
@@ -216,6 +225,11 @@ export class Game {
     }))
   }
 
+  #updateUndo () {
+    const moves = this.#grid.getMoves()
+    $undo.classList.toggle(Game.ClassNames.Disabled, moves.length === 0)
+  }
+
   #updateWidthSelector () {
     $width.replaceChildren(...Grid.Widths.map((width) => {
       const $option = document.createElement('option')
@@ -277,6 +291,7 @@ export class Game {
   static ClassNames = Object.freeze({
     Container: 'container',
     Delete: 'delete',
+    Disabled: 'disabled',
     Expanded: 'expanded',
     FlexLeft: 'flex-left',
     FlexRight: 'flex-right',

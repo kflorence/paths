@@ -568,21 +568,14 @@ p.center {
   background-color: #FDFFF7;
 }
 
-.grid .cell-swap::after,
 .grid .cell-swap .background,
-.grid .cell-swapped::after,
-.grid .cell-swapped .background {
+.grid .cell-swapped .background,
+.grid .cell-swapped.cell-validated .background {
   background-color: #B4ADEA;
 }
 
-.grid .cell-swapped.cell-selected::after,
 .grid .cell-swapped.cell-selected .background {
-  background-color: color-mix(in oklab, #B4ADEA, #FDFFF7)
-}
-
-.grid .cell-swapped.cell-validated::after,
-.grid .cell-swapped.cell-validated .background {
-  background-color: color-mix(in oklab, #B4ADEA, #59FFA0)
+  background-color: color-mix(in oklab, #B4ADEA 75%, #FDFFF7);
 }
 
 .grid .cell-validated::after,
@@ -591,6 +584,7 @@ p.center {
 }
 
 .grid .cell-path.cell-word-end::after {
+  background-color: black;
   opacity: 0.25;
 }
 
@@ -627,6 +621,11 @@ p.center {
   cursor: pointer;
   display: flex;
   padding: 1em;
+}
+
+.menu li.disabled {
+  color: #50514F;
+  cursor: default;
 }
 
 .menu a {
