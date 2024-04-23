@@ -150,10 +150,18 @@ export class Grid {
   }
 
   undo () {
-    const state = this.#getState()
-    if (state.moves.length === 0) {
+    if (this.#selection.length) {
+      // If there is an active selection, de-select it.
+      this.#deselect(this.#selection.splice(0))
       return
     }
+
+    const state = this.#getState()
+    if (state.moves.length === 0) {
+      // If there are no moves, nothing to do.
+      return
+    }
+
     const [type, index] = state.moves[state.moves.length - 1].split(':')
     switch (type) {
       case Grid.Moves.Spell:
@@ -255,12 +263,15 @@ export class Grid {
     return letters.find((letter) => letter.weight > weight)
   }
 
-  #onPointerUp () {
+  #onPointerUp (event) {
     this.#deactivate()
 
     if (!this.#selectionStart) {
-      // User clicked outside the grid area. De-select anything that was selected.
-      this.#deselect(this.#selection.splice(0))
+      // User did not tap on a cell.
+      if (!event.target.closest('#grid') && !event.target.closest('#undo')) {
+        // User tapped outside the grid area and not on the undo button, de-select everything.
+        this.#deselect(this.#selection.splice(0))
+      }
       return
     }
 

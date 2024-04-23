@@ -168,6 +168,8 @@ export class Game {
   }
 
   #updateSelection () {
+    this.#updateUndo()
+
     const selection = this.#grid.getSelection().filter((cell) => !cell.getFlags().has(Cell.Flags.Swap))
     $selection.replaceChildren()
     $selection.classList.remove(Game.ClassNames.Valid)
@@ -227,7 +229,9 @@ export class Game {
 
   #updateUndo () {
     const moves = this.#grid.getMoves()
-    $undo.classList.toggle(Game.ClassNames.Disabled, moves.length === 0)
+    const selection = this.#grid.getSelection()
+    const disabled = moves.length === 0 && selection.length === 0
+    $undo.classList.toggle(Game.ClassNames.Disabled, disabled)
   }
 
   #updateWidthSelector () {
