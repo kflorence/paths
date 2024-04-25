@@ -1,4 +1,4 @@
-class Letter {
+export class Letter {
   character
   frequency
   points

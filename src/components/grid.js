@@ -2,10 +2,9 @@ import { Cell } from './cell'
 import { Coordinates } from './coordinates'
 import { State } from './state'
 import { EventListeners } from './eventListeners'
-import { Word } from './word'
+import { getWords, Word } from './word'
 import { Flags } from './flag'
 import { getClassName } from './util'
-import { letters } from './letter'
 
 const $grid = document.getElementById('grid')
 
@@ -22,6 +21,7 @@ export class Grid {
   #pointerIndex = -1
   #rand
   #seed
+  #seedWords
   #selection = []
   #selectionStart
   #state
@@ -40,6 +40,9 @@ export class Grid {
 
     $grid.dataset.width = this.width
 
+    this.#seedWords = getWords(this.#rand, this.size)
+    const characters = this.#seedWords.join('').split('')
+
     const indexes = []
     for (let index = 0; index < this.size; index++) {
       indexes.push(index)
@@ -47,8 +50,9 @@ export class Grid {
       const row = Math.floor(index / this.width)
       const column = index % this.width
       const coordinates = new Coordinates(row, column, this.width)
-      const letter = this.#nextLetter()
-      const configuration = new Cell.State(index, letter.character)
+      const characterIndex = Math.floor(this.#rand() * characters.length)
+      const character = characters.splice(characterIndex, 1)[0]
+      const configuration = new Cell.State(index, character)
       const cell = new Cell(coordinates, configuration)
 
       this.#cells.push(cell)
@@ -67,6 +71,10 @@ export class Grid {
 
   getMoves () {
     return this.#getState().moves
+  }
+
+  getSeedWords () {
+    return Array.from(this.#seedWords)
   }
 
   getSelection () {
@@ -256,11 +264,6 @@ export class Grid {
 
   #isValid (source, target) {
     return source?.isNeighbor(target) && !this.#isCrossing(source, target)
-  }
-
-  #nextLetter () {
-    const weight = this.#rand()
-    return letters.find((letter) => letter.weight > weight)
   }
 
   #onPointerUp (event) {
@@ -676,7 +679,7 @@ export class Grid {
       }
 
       const width = State.params.get(State.Params.Width)
-      return new Grid.#State(id, width)
+      return new Grid.#State(id, Number(width))
     }
 
     static fromState (state) {

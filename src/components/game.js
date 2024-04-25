@@ -14,6 +14,7 @@ const $new = document.getElementById('new')
 const $path = document.getElementById('path')
 const $reset = document.getElementById('reset')
 const $score = document.getElementById('score')
+const $seedWords = document.getElementById('seed-words')
 const $selection = document.getElementById('selection')
 const $share = document.getElementById('share')
 const $statistics = document.getElementById('statistics')
@@ -63,6 +64,7 @@ export class Game {
     this.update()
     this.#updateDrawer()
     this.#updateWidthSelector()
+    this.#updateSeedWords()
   }
 
   getScore (words) {
@@ -165,6 +167,14 @@ export class Game {
 
   #updateScore (words) {
     $score.textContent = this.getScore(words)
+  }
+
+  #updateSeedWords () {
+    $seedWords.replaceChildren(...this.#grid.getSeedWords().map((word) => {
+      const $li = document.createElement('li')
+      $li.textContent = word
+      return $li
+    }))
   }
 
   #updateSelection () {

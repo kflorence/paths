@@ -23,25 +23,6 @@ code {
   padding: 0.5em;
 }
 
-details {
-  background-color: white;
-  border-bottom: 1px solid #A7A9A4;
-  border-top: 1px solid #A7A9A4;
-  padding: 1em;
-}
-
-details + details {
-  border-top: none;
-}
-
-details > details {
-  border: none;
-}
-
-details > summary {
-  cursor: pointer;
-}
-
 dialog {
   background-color: #333;
   box-shadow: 0 0 0.75rem 0.5rem rgba(0, 0, 0, 0.25);
@@ -57,6 +38,25 @@ dialog a {
 
 dialog a:visited {
   color: #B4ADEA;
+}
+
+dialog details {
+  background-color: white;
+  border-bottom: 1px solid #A7A9A4;
+  border-top: 1px solid #A7A9A4;
+  padding: 1em;
+}
+
+dialog details + details {
+  border-top: none;
+}
+
+dialog details > details {
+  border: none;
+}
+
+details > summary {
+  cursor: pointer;
 }
 
 dialog .container {
@@ -225,12 +225,6 @@ p.center {
   padding: 1em;
 }
 
-#footer {
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-user-select: none;
-}
-
 #letter-points .letters {
   text-transform: uppercase;
 }
@@ -272,6 +266,10 @@ p.center {
 
 #scoring-examples .flex-right .grid {
   margin-left: 0;
+}
+
+#seed-words {
+  list-style: disc inside;
 }
 
 #selection.selection {
@@ -347,18 +345,20 @@ p.center {
 .drawer {
   background: #50514F;
   border-radius: 16px;
+  color: #d2d3cd;
   display: none;
   font-size: 20px;
   padding: 1em;
 }
 
-.drawer h3 {
+.drawer h3,
+.drawer summary {
+  color: white;
   font-size: 1em;
   margin: 0 0 0.5em 0;
 }
 
 .drawer ul {
-  color: #d2d3cd;
   list-style: none;
   margin: 0;
   padding: 0;

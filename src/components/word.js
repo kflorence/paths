@@ -2,9 +2,6 @@ import wordsTxt from 'bundle-text:word-list/words.txt'
 import { lettersByCharacter } from './letter'
 import { Cell } from './cell'
 
-// Each word is delimited by a newline
-const words = wordsTxt.split('\n')
-
 export class Word {
   content
   indexes = []
@@ -31,12 +28,61 @@ export class Word {
   }
 
   static isValid (word) {
-    return word.length > Word.minimumLength && words.includes(word)
+    return word.length >= Word.minimumLength && words.includes(word)
   }
 
   static widthMultiplier (width) {
     return Math.floor(width / 2)
   }
 
-  static minimumLength = 2
+  static minimumLength = 3
+}
+
+// Each word is delimited by a newline
+const words = wordsTxt.split('\n').filter((word) => word.length >= Word.minimumLength)
+
+/**
+ * Gets random words from the words dictionary until the length is met.
+ * @param rand A PRNG used to pick random words from the dictionary.
+ * @param length The exact total length of the picked words.
+ * @returns {*[]|*} An array of words.
+ */
+export function getWords (rand, length) {
+  let availableWords = Array.from(words)
+  let count = 0
+
+  const result = []
+  function next () {
+    let maximumWordLength = length - count - Word.minimumLength
+    if (maximumWordLength >= Word.minimumLength) {
+      availableWords = availableWords.filter((word) => word.length <= maximumWordLength)
+    } else {
+      maximumWordLength = maximumWordLength + Word.minimumLength
+      availableWords = availableWords.filter((word) => word.length === maximumWordLength)
+    }
+
+    console.debug(
+      `getWords ${result.length}: ` +
+        `count = ${count}/${length}, ` +
+        `maximumWordLength = ${maximumWordLength}, ` +
+        `availableWords = ${availableWords.length}`
+    )
+
+    const nextWordIndex = Math.floor(rand() * availableWords.length)
+    const nextWord = availableWords[nextWordIndex]
+
+    console.debug(`getWords picked word '${nextWord}' at index ${nextWordIndex}.`)
+
+    result.push(nextWord)
+    count += nextWord.length
+
+    if (count === length) {
+      console.debug(`getWords result: ${result.join(', ')}`)
+      return result
+    }
+
+    return next()
+  }
+
+  return next()
 }
