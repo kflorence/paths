@@ -12,6 +12,7 @@ const $footer = document.getElementById('footer')
 const $includeState = document.getElementById('include-state')
 const $new = document.getElementById('new')
 const $path = document.getElementById('path')
+const $rating = document.getElementById('rating')
 const $reset = document.getElementById('reset')
 const $score = document.getElementById('score')
 const $seedWords = document.getElementById('seed-words')
@@ -61,19 +62,11 @@ export class Game {
       { type: Grid.Events.Update, handler: this.#onGridUpdate }
     ])
 
-    this.update()
     this.#updateDrawer()
     this.#updateWidthSelector()
     this.#updateSeedWords()
-  }
 
-  getScore (words) {
-    const { length, points } = words.reduce(
-      (acc, word) => ({ length: acc.length + word.content.length, points: acc.points + word.points }),
-      { length: 0, points: 0 }
-    )
-    const size = this.#grid.size
-    return points + (length === size ? size : 0)
+    this.update()
   }
 
   reset () {
@@ -87,9 +80,7 @@ export class Game {
     const size = `${width}x${width}`
     const state = this.#state.get()
     const url = new URL(State.url.toString())
-    const words = this.#grid.getWords()
     const statistics = this.#grid.getStatistics()
-    const score = this.getScore(words)
 
     if (state.includeStateInShareUrl) {
       url.searchParams.set(State.Params.State, this.#grid.getState())
@@ -99,10 +90,8 @@ export class Game {
     }
 
     const content = `Paths #${id} (${size})\n` +
-      `Score: ${score} (` +
-      `Words: ${statistics.wordCount}, ` +
-      `Swaps: ${statistics.swapCount}, ` +
-      `Progress: ${statistics.progress}%)\n` +
+      `Score: ${statistics.score} ${statistics.rating} (${statistics.progress}% filled)\n` +
+      `${statistics.moves.map((move) => move === Grid.Moves.Spell ? '🟩' : '🟪').join('')}\n` +
       `${url.toString()}`
 
     await writeToClipboard(content)
@@ -111,10 +100,10 @@ export class Game {
   }
 
   update () {
-    this.#updateWords()
     this.#updateStatistics()
     this.#updateSwaps()
     this.#updateUndo()
+    this.#updateWords()
   }
 
   #deleteSwap (event) {
@@ -165,10 +154,6 @@ export class Game {
     $includeState.checked = state.includeStateInShareUrl
   }
 
-  #updateScore (words) {
-    $score.textContent = this.getScore(words)
-  }
-
   #updateSeedWords () {
     $seedWords.replaceChildren(...this.#grid.getSeedWords().map((word) => {
       const $li = document.createElement('li')
@@ -215,6 +200,8 @@ export class Game {
 
   #updateStatistics () {
     const statistics = this.#grid.getStatistics()
+    $rating.textContent = statistics.rating
+    $score.textContent = statistics.score
     $statistics.replaceChildren(...[
       { name: 'Average Word Length', value: statistics.averageWordLength },
       { name: 'Progress', value: `${statistics.progress}%` }
@@ -268,8 +255,6 @@ export class Game {
       $points.textContent = word.points
       return Game.getListItem([$word, $points], Game.getDeleteElement(index))
     }))
-
-    this.#updateScore(words)
   }
 
   static getDeleteElement (index) {
