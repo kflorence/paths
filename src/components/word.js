@@ -70,6 +70,7 @@ export function getWords (rand, length) {
 
     const nextWordIndex = Math.floor(rand() * availableWords.length)
     const nextWord = availableWords[nextWordIndex]
+    availableWords.splice(nextWordIndex, 1)
 
     console.debug(`getWords picked word '${nextWord}' at index ${nextWordIndex}.`)
 

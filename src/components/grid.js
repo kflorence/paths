@@ -85,8 +85,9 @@ export class Grid {
     return State.encode(JSON.stringify(this.#state.get()))
   }
 
-  getStatistics () {
-    return new Grid.Statistics(this.#getState(), this.size, this.getWords())
+  getStatistics (state) {
+    state ??= this.#getState()
+    return new Grid.Statistics(state, this.getWords(state), this.size)
   }
 
   getSwaps () {
@@ -98,8 +99,9 @@ export class Grid {
     }))
   }
 
-  getWords () {
-    return this.#getState().words.map((indexes) => new Word(this.width, indexes.map((index) => this.#cells[index])))
+  getWords (state) {
+    return (state ?? this.#getState())
+      .words.map((indexes) => new Word(this.width, indexes.map((index) => this.#cells[index])))
   }
 
   removeSwap (index) {
@@ -510,6 +512,11 @@ export class Grid {
     })
 
     this.#pointerIndex = lastPathIndex
+    const statistics = this.getStatistics(state)
+    if (statistics.score > state.best) {
+      state.best = statistics.score
+      this.#setState(state)
+    }
 
     this.#dispatch(Grid.Events.Update)
   }
@@ -646,6 +653,7 @@ export class Grid {
   }
 
   static #State = class {
+    best
     id
     moves
     path
@@ -653,7 +661,8 @@ export class Grid {
     width
     words
 
-    constructor (id, width, path, swaps, words, moves) {
+    constructor (id, width, path, swaps, words, moves, best) {
+      this.best = best ?? 0
       this.id = id
       this.width = Grid.Widths.includes(width) ? width : Grid.DefaultWidth
       this.path = path ?? []
@@ -683,7 +692,25 @@ export class Grid {
     }
 
     static fromState (state) {
-      return new Grid.#State(state.id, state.width, state.path, state.swaps, state.words, state.moves)
+      return new Grid.#State(
+        state.id,
+        state.width,
+        state.path,
+        state.swaps,
+        state.words,
+        state.moves,
+        state.best
+      )
+    }
+  }
+
+  static Rating = class {
+    description
+    emoji
+
+    constructor (description, emoji) {
+      this.description = description
+      this.emoji = emoji
     }
   }
 
@@ -691,6 +718,8 @@ export class Grid {
 
   static Statistics = class {
     averageWordLength
+    best
+    bestDiff
     moves
     progress
     rating
@@ -698,23 +727,34 @@ export class Grid {
     swapCount
     wordCount
 
-    constructor (state, size, words) {
+    constructor (state, words, size) {
       const { length, points } = words.reduce(
         (acc, word) => ({ length: acc.length + word.content.length, points: acc.points + word.points }),
         { length: 0, points: 0 }
       )
 
+      const score = points + (length === size ? size : 0)
+      const diff = state.best - score
+
       this.averageWordLength = length === 0 ? 0 : (length / words.length).toPrecision(2)
+      this.best = state.best
+      this.bestDiff = diff === 0 ? '=' : (diff < 0 ? diff : `+${diff}`)
       this.moves = state.moves.map((move) => move.split(':')[0])
       this.progress = Math.trunc((state.path.length / size) * 100)
-      this.score = points + (length === size ? size : 0)
+      this.score = score
       const ratingIndex = Math.min(Grid.Statistics.Ratings.length - 1, Math.floor(this.score / size))
-      this.rating = points === 69 ? '😏' : Grid.Statistics.Ratings[ratingIndex]
+      this.rating = points === 69 ? new Grid.Rating('Heh', '😏') : Grid.Statistics.Ratings[ratingIndex]
       this.swapCount = state.swaps.length
       this.wordCount = words.length
     }
 
-    static Ratings = Object.freeze(['🫣', '🤕', '😅', '🥳', '🤯'])
+    static Ratings = Object.freeze([
+      new Grid.Rating('Hmm', '🤔'),
+      new Grid.Rating('Meh', '😐'),
+      new Grid.Rating('Whew', '😅'),
+      new Grid.Rating('Great', '🥳'),
+      new Grid.Rating('Wow', '🤯')
+    ])
   }
 }
 

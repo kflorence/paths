@@ -222,7 +222,11 @@ p.center {
   align-items: center;
   cursor: pointer;
   display: inline-flex;
-  padding: 1em;
+  padding: 0.5em;
+}
+
+#footer .container .flex-left {
+  flex-basis: fit-content;
 }
 
 #letter-points .letters {
