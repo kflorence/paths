@@ -12,7 +12,6 @@ const $footer = document.getElementById('footer')
 const $includeState = document.getElementById('include-state')
 const $new = document.getElementById('new')
 const $path = document.getElementById('path')
-const $rating = document.getElementById('rating')
 const $reset = document.getElementById('reset')
 const $score = document.getElementById('score')
 const $seedWords = document.getElementById('seed-words')
@@ -200,11 +199,12 @@ export class Game {
 
   #updateStatistics () {
     const statistics = this.#grid.getStatistics()
-    $rating.textContent = statistics.rating
     $score.textContent = statistics.score
     $statistics.replaceChildren(...[
       { name: 'Average Word Length', value: statistics.averageWordLength },
-      { name: 'Progress', value: `${statistics.progress}%` }
+      { name: 'Progress', value: `${statistics.progress}%` },
+      { name: 'Rating', value: `${statistics.rating.description} ${statistics.rating.emoji}` },
+      { name: 'Your Best Score', value: `${statistics.best} (${statistics.bestDiff})` }
     ].map((item) => {
       const $content = document.createElement('span')
       $content.textContent = item.name
