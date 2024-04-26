@@ -376,7 +376,7 @@ export class Grid {
         flags.push(Cell.Flags.Swap)
       } else {
         const lastSelectionIndex = this.#selection.length - 1
-        if (this.#selection.length > Word.minimumLength && selectedIndex === lastSelectionIndex) {
+        if (this.#selection.length >= Word.minimumLength && selectedIndex === lastSelectionIndex) {
           console.debug('SelectSingle: Submitting selection for validation.')
           this.#validate()
         } else {
