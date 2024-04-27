@@ -3,13 +3,14 @@ import { EventListeners } from './eventListeners'
 import Tippy from 'tippy.js'
 import 'tippy.js/dist/tippy.css'
 import { State } from './state'
-import { Word } from './word'
+import { Dictionary, Word, Words } from './word'
 import { writeToClipboard } from './util'
 import { Cell } from './cell'
 
 const $expand = document.getElementById('expand')
 const $footer = document.getElementById('footer')
 const $includeState = document.getElementById('include-state')
+const $includeProfanity = document.getElementById('include-profanity')
 const $new = document.getElementById('new')
 const $path = document.getElementById('path')
 const $reset = document.getElementById('reset')
@@ -34,21 +35,24 @@ export class Game {
   #eventListeners = new EventListeners({ context: this })
   #grid
   #state
+  #words
 
   constructor () {
-    this.#grid = new Grid()
-
-    $new.href = `?${State.Params.Id}=${crypto.randomUUID().split('-')[0]}`
-    $path.href = `?${State.Params.Id}=${this.#grid.id}`
-    $path.textContent = this.#grid.id
-
     this.#state = new State(
       'game',
       {},
       { params: { [State.Params.Expand]: new State.Param(State.Params.Expand) } }
     )
 
+    this.#words = new Words()
+    this.#grid = new Grid(this.#words)
+
+    $new.href = `?${State.Params.Id}=${crypto.randomUUID().split('-')[0]}`
+    $path.href = `?${State.Params.Id}=${this.#grid.id}`
+    $path.textContent = this.#grid.id
+
     this.#eventListeners.add([
+      { type: 'change', element: $includeProfanity, handler: this.#onIncludeProfanityChange },
       { type: 'change', element: $includeState, handler: this.#onIncludeStateChange },
       { type: 'change', element: $width, handler: this.#onWidthChange },
       { type: 'click', element: $expand, handler: this.#onExpand },
@@ -63,14 +67,25 @@ export class Game {
 
     this.#updateDrawer()
     this.#updateWidthSelector()
-    this.#updateSeedWords()
-
-    this.update()
   }
 
   reset () {
     this.#grid.reset()
     this.update()
+  }
+
+  async setup () {
+    // Load the base dictionary, and generate the grid from that
+    await this.#words.load(Game.Dictionaries.Default)
+    this.#grid.setup()
+    this.#updateSeedWords()
+    this.update()
+
+    const state = this.#state.get()
+    if (state.includeProfanityInDictionary) {
+      // Profane words can be validated, but they won't be used to generate the grid
+      await this.#words.load(Game.Dictionaries.Profanity)
+    }
   }
 
   async share () {
@@ -128,6 +143,15 @@ export class Game {
     this.update()
   }
 
+  async #onIncludeProfanityChange (event) {
+    const state = this.#state.get()
+    state.includeProfanityInDictionary = event.target.checked
+    if (state.includeProfanityInDictionary) {
+      await this.#words.load(Game.Dictionaries.Profanity)
+    }
+    this.#state.set(state)
+  }
+
   #onIncludeStateChange (event) {
     const state = this.#state.get()
     state.includeStateInShareUrl = event.target.checked
@@ -150,6 +174,7 @@ export class Game {
     const expanded = state.expand === true
     $footer.classList.toggle(Game.ClassNames.Expanded, expanded)
     $expand.textContent = expanded ? 'expand_less' : 'expand_more'
+    $includeProfanity.checked = state.includeProfanityInDictionary
     $includeState.checked = state.includeStateInShareUrl
   }
 
@@ -176,11 +201,11 @@ export class Game {
     $content.textContent = Grid.getContent(selection)
 
     const children = [$content]
-    if (Word.isValid($content.textContent)) {
+    if (this.#words.isValid($content.textContent)) {
       $content.classList.add(Game.ClassNames.Valid)
     } else {
       const content = Grid.getContent(selection.reverse())
-      if (Word.isValid(content)) {
+      if (this.#words.isValid(content)) {
         $content.classList.add(Game.ClassNames.Valid)
         $content.textContent = content
       }
@@ -299,5 +324,16 @@ export class Game {
     Swap: 'swap',
     Valid: 'valid',
     Word: 'word'
+  })
+
+  static Dictionaries = Object.freeze({
+    Default: new Dictionary(
+      'default',
+      'https://raw.githubusercontent.com/kflorence/word-list/main/words.txt?v=1'
+    ),
+    Profanity: new Dictionary(
+      'profanity',
+      'https://raw.githubusercontent.com/kflorence/word-list/main/words-profanity.txt?v=1'
+    )
   })
 }

@@ -1,4 +1,3 @@
-import wordsTxt from 'bundle-text:word-list/words.txt'
 import { lettersByCharacter } from './letter'
 import { Cell } from './cell'
 
@@ -27,10 +26,6 @@ export class Word {
     this.points = pointScoringLetters.reduce((points, letter) => points + letter.points, 0) * lengthMultiplier
   }
 
-  static isValid (word) {
-    return word.length >= Word.minimumLength && words.includes(word)
-  }
-
   static widthMultiplier (width) {
     return Math.floor(width / 2)
   }
@@ -38,52 +33,114 @@ export class Word {
   static minimumLength = 3
 }
 
-// Each word is delimited by a newline
-const words = wordsTxt.split('\n').filter((word) => word.length >= Word.minimumLength)
+class Range {
+  constructor (start, end) {
+    this.start = start
+    this.end = end
+  }
 
-/**
- * Gets random words from the words dictionary until the length is met.
- * @param rand A PRNG used to pick random words from the dictionary.
- * @param length The exact total length of the picked words.
- * @returns {*[]|*} An array of words.
- */
-export function getWords (rand, length) {
-  let availableWords = Array.from(words)
-  let count = 0
+  contains (index) {
+    return index >= this.start && index <= this.end
+  }
+}
 
-  const result = []
-  function next () {
-    let maximumWordLength = length - count - Word.minimumLength
-    if (maximumWordLength >= Word.minimumLength) {
-      availableWords = availableWords.filter((word) => word.length <= maximumWordLength)
-    } else {
-      maximumWordLength = maximumWordLength + Word.minimumLength
-      availableWords = availableWords.filter((word) => word.length === maximumWordLength)
+export class Dictionary {
+  name
+  url
+
+  constructor (name, url) {
+    this.name = name
+    this.url = url
+  }
+}
+
+export class Words {
+  dictionaries = {}
+  values = []
+
+  async load (dictionary) {
+    if (this.dictionaries[dictionary.name]) {
+      console.debug(`Dictionary '${dictionary.name}' has already been loaded.`)
+      return
     }
 
-    console.debug(
-      `getWords ${result.length}: ` +
+    console.debug(`Words is loading dictionary '${dictionary.name}' from URL: '${dictionary.url}'`)
+    try {
+      // Always use cached copy if it exists
+      const response = await fetch(dictionary.url, { cache: 'force-cache' })
+      const text = await response.text()
+      const startIndex = this.values.length - 1
+      this.values = Array.from(
+        new Set(this.values.concat(text.split('\n').filter((word) => word.length >= Word.minimumLength)))
+      )
+      this.dictionaries[dictionary.name] = new Range(startIndex, this.values.length - 1)
+      console.debug(`Words loaded. New word count: ${this.values.length}`)
+    } catch (e) {
+      console.error(`Could not load words for dictionary '${dictionary.name}' from URL '${dictionary.url}'`, e.message)
+    }
+  }
+
+  /**
+   * Gets random words from the words dictionary until the length is met.
+   * @param rand A PRNG used to choose indexes from the set of words.
+   * @param length The exact total length of the picked words.
+   * @returns {*[]|*} An array of words.
+   */
+  getRandom (rand, length) {
+    let availableWords = Array.from(this.values)
+    let count = 0
+
+    const result = []
+    function next () {
+      let maximumWordLength = length - count - Word.minimumLength
+      if (maximumWordLength >= Word.minimumLength) {
+        availableWords = availableWords.filter((word) => word.length <= maximumWordLength)
+      } else {
+        maximumWordLength = maximumWordLength + Word.minimumLength
+        availableWords = availableWords.filter((word) => word.length === maximumWordLength)
+      }
+
+      console.debug(
+        `getWords ${result.length}: ` +
         `count = ${count}/${length}, ` +
         `maximumWordLength = ${maximumWordLength}, ` +
         `availableWords = ${availableWords.length}`
-    )
+      )
 
-    const nextWordIndex = Math.floor(rand() * availableWords.length)
-    const nextWord = availableWords[nextWordIndex]
-    availableWords.splice(nextWordIndex, 1)
+      const nextWordIndex = Math.floor(rand() * availableWords.length)
+      const nextWord = availableWords[nextWordIndex]
+      availableWords.splice(nextWordIndex, 1)
 
-    console.debug(`getWords picked word '${nextWord}' at index ${nextWordIndex}.`)
+      console.debug(`getWords picked word '${nextWord}' at index ${nextWordIndex}.`)
 
-    result.push(nextWord)
-    count += nextWord.length
+      result.push(nextWord)
+      count += nextWord.length
 
-    if (count === length) {
-      console.debug(`getWords result: ${result.join(', ')}`)
-      return result
+      if (count === length) {
+        console.debug(`getWords result: ${result.join(', ')}`)
+        return result
+      }
+
+      return next()
     }
 
     return next()
   }
 
-  return next()
+  getDictionary (word) {
+    const index = this.values.indexOf(word)
+    if (index < 0) {
+      return
+    }
+
+    for (const name in this.dictionaries) {
+      if (this.dictionaries[name].contains(index)) {
+        return name
+      }
+    }
+  }
+
+  isValid (word) {
+    return word.length >= Word.minimumLength && this.values.includes(word)
+  }
 }

@@ -6,6 +6,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const game = new Game()
+game.setup()
 
 window.addEventListener('popstate', (event) => {
   // Handle user navigating through history
