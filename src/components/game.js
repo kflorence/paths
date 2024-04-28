@@ -3,7 +3,7 @@ import { EventListeners } from './eventListeners'
 import Tippy from 'tippy.js'
 import 'tippy.js/dist/tippy.css'
 import { State } from './state'
-import { Dictionary, Word, Words } from './word'
+import { Dictionaries, DictionaryNames, Word, Words } from './word'
 import { writeToClipboard } from './util'
 import { Cell } from './cell'
 
@@ -76,15 +76,20 @@ export class Game {
 
   async setup () {
     // Load the base dictionary, and generate the grid from that
-    await this.#words.load(Game.Dictionaries.Default)
+    await this.#words.load(Dictionaries.Default)
     this.#grid.setup()
     this.#updateSeedWords()
     this.update()
 
     const state = this.#state.get()
-    if (state.includeProfanityInDictionary) {
+    if (
+      // User has the dictionary enabled
+      state.includeProfanityInDictionary ||
+      // User has validated profane words, or loaded a share URL with profane words in it
+      this.#grid.getDictionaries().includes(DictionaryNames.Profanity)
+    ) {
       // Profane words can be validated, but they won't be used to generate the grid
-      await this.#words.load(Game.Dictionaries.Profanity)
+      await this.#words.load(Dictionaries.Profanity)
     }
   }
 
@@ -103,9 +108,14 @@ export class Game {
       url.searchParams.set(State.Params.Width, width)
     }
 
-    const content = `Paths #${id} (${size})\n` +
-      `Score: ${statistics.score} ${statistics.rating} (${statistics.progress}% filled)\n` +
-      `${statistics.moves.map((move) => move === Grid.Moves.Spell ? '🟩' : '🟪').join('')}\n` +
+    const dictionaries = this.#grid.getDictionaries().join(' + ')
+    const moves = statistics.moves.map((move) => move === Grid.Moves.Spell ? '🟩' : '🟪').join('')
+
+    const content = `Path: #${id} (${size})\n` +
+      `Score: ${statistics.score} ` +
+      `${statistics.rating.description} ${statistics.rating.emoji} (${statistics.progress}% filled)\n` +
+      (moves ? `Moves: ${moves}\n` : '') +
+      (dictionaries ? `Dictionary: ${dictionaries}\n` : '') +
       `${url.toString()}`
 
     await writeToClipboard(content)
@@ -147,7 +157,9 @@ export class Game {
     const state = this.#state.get()
     state.includeProfanityInDictionary = event.target.checked
     if (state.includeProfanityInDictionary) {
-      await this.#words.load(Game.Dictionaries.Profanity)
+      await this.#words.load(Dictionaries.Profanity)
+    } else {
+      this.#words.unload(Dictionaries.Profanity)
     }
     this.#state.set(state)
   }
@@ -324,16 +336,5 @@ export class Game {
     Swap: 'swap',
     Valid: 'valid',
     Word: 'word'
-  })
-
-  static Dictionaries = Object.freeze({
-    Default: new Dictionary(
-      'default',
-      'https://raw.githubusercontent.com/kflorence/word-list/main/words.txt?v=1'
-    ),
-    Profanity: new Dictionary(
-      'profanity',
-      'https://raw.githubusercontent.com/kflorence/word-list/main/words-profanity.txt?v=1'
-    )
   })
 }

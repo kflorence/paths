@@ -44,7 +44,7 @@ class Range {
   }
 }
 
-export class Dictionary {
+class Dictionary {
   name
   url
 
@@ -53,6 +53,22 @@ export class Dictionary {
     this.url = url
   }
 }
+
+export const DictionaryNames = Object.freeze({
+  Default: 'default',
+  Profanity: 'profanity'
+})
+
+export const Dictionaries = Object.freeze({
+  Default: new Dictionary(
+    DictionaryNames.Default,
+    'https://raw.githubusercontent.com/kflorence/word-list/main/words.txt?v=1'
+  ),
+  Profanity: new Dictionary(
+    DictionaryNames.Profanity,
+    'https://raw.githubusercontent.com/kflorence/word-list/main/words-profanity.txt?v=1'
+  )
+})
 
 export class Words {
   dictionaries = {}
@@ -142,5 +158,17 @@ export class Words {
 
   isValid (word) {
     return word.length >= Word.minimumLength && this.values.includes(word)
+  }
+
+  unload (dictionary) {
+    const range = this.dictionaries[dictionary.name]
+    if (!range) {
+      return
+    }
+
+    console.debug(`Unloading dictionary '${dictionary.name}'. Current length: ${this.values.length}`)
+    this.values.splice(range.start, (range.end - range.start) + 1)
+    delete this.dictionaries[dictionary.name]
+    console.debug(`Done unloading. New length: ${this.values.length}`)
   }
 }

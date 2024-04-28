@@ -48,6 +48,10 @@ export class Grid {
     ])
   }
 
+  getDictionaries () {
+    return Array.from(new Set(this.#getState().dictionary))
+  }
+
   getMoves () {
     return this.#getState().moves
   }
@@ -114,6 +118,9 @@ export class Grid {
 
     // Remove everything after and including the first matched path index.
     const pathIndexes = state.path.splice(earliestPathIndex)
+
+    // Update dictionary
+    state.dictionary.splice(index)
 
     // Update moves
     state.moves = state.moves.filter((move) => {
@@ -557,17 +564,14 @@ export class Grid {
       if (this.#words.isValid(content)) {
         const state = this.#getState()
 
-        // Update dictionaries
-        const dictionary = this.#words.getDictionary(content)
-        if (!state.dictionaries.includes(dictionary)) {
-          state.dictionaries.push(dictionary)
-        }
-
         // Path indexes correspond to the selection as it was anchored to the existing path
         state.path.push(...pathIndexes)
 
         // Word indexes correspond to the order in which the word was spelled
         state.words.push(Grid.getIndexes(wordCells))
+
+        // Add the dictionary used to verify the word
+        state.dictionary.push(this.#words.getDictionary(content))
 
         // Update moves
         state.moves.push([Grid.Moves.Spell, state.words.length - 1].join(':'))
@@ -664,7 +668,7 @@ export class Grid {
 
   static #State = class {
     best
-    dictionaries
+    dictionary
     id
     moves
     path
@@ -672,9 +676,9 @@ export class Grid {
     width
     words
 
-    constructor (id, width, path, swaps, words, moves, best, dictionaries) {
+    constructor (id, width, path, swaps, words, moves, best, dictionary) {
       this.best = best ?? 0
-      this.dictionaries = dictionaries ?? []
+      this.dictionary = dictionary ?? []
       this.id = id
       this.width = Grid.Widths.includes(width) ? width : Grid.DefaultWidth
       this.path = path ?? []
@@ -712,7 +716,7 @@ export class Grid {
         state.words,
         state.moves,
         state.best,
-        state.dictionaries
+        state.dictionary
       )
     }
   }
