@@ -168,6 +168,7 @@ export class Grid {
     this.#update(indexes)
 
     $grid.replaceChildren(...this.#cells.map((cell) => cell.getElement()))
+    $grid.classList.remove(Grid.ClassNames.Loading)
   }
 
   undo () {
@@ -638,6 +639,7 @@ export class Grid {
   })
 
   static Name = 'grid'
+  static ClassNames = Object.freeze({ Loading: getClassName(Grid.Name, 'loading') })
   static DefaultId = (() => {
     // The ID for the daily puzzle
     const date = new Date()
