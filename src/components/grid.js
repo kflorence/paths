@@ -2,7 +2,7 @@ import { Cell } from './cell'
 import { Coordinates } from './coordinates'
 import { State } from './state'
 import { EventListeners } from './eventListeners'
-import { getWords, Word } from './word'
+import { Word } from './word'
 import { Flags } from './flag'
 import { getClassName } from './util'
 
@@ -25,8 +25,9 @@ export class Grid {
   #selection = []
   #selectionStart
   #state
+  #words
 
-  constructor () {
+  constructor (words) {
     const ephemeral = State.params.has(State.Params.State)
     const state = ephemeral ? Grid.#State.fromState(State.get(Grid.StateParam)) : Grid.#State.fromParams()
 
@@ -37,36 +38,18 @@ export class Grid {
     this.#seed = state.getSeed()
     this.#rand = Grid.splitmix32(this.#seed)
     this.#state = new State(this.#seed, state, { ephemeral })
+    this.#words = words
 
     $grid.dataset.width = this.width
-
-    this.#seedWords = getWords(this.#rand, this.size)
-    const characters = this.#seedWords.join('').split('')
-
-    const indexes = []
-    for (let index = 0; index < this.size; index++) {
-      indexes.push(index)
-
-      const row = Math.floor(index / this.width)
-      const column = index % this.width
-      const coordinates = new Coordinates(row, column, this.width)
-      const characterIndex = Math.floor(this.#rand() * characters.length)
-      const character = characters.splice(characterIndex, 1)[0]
-      const configuration = new Cell.State(index, character)
-      const cell = new Cell(coordinates, configuration)
-
-      this.#cells.push(cell)
-      this.#configuration.push(configuration)
-    }
-
-    this.#update(indexes)
-
-    $grid.replaceChildren(...this.#cells.map((cell) => cell.getElement()))
 
     this.#eventListeners.add([
       { type: Cell.Events.Select, handler: this.#onSelect },
       { type: 'pointerup', element: document, handler: this.#onPointerUp }
     ])
+  }
+
+  getDictionaries () {
+    return Array.from(new Set(this.#getState().dictionary))
   }
 
   getMoves () {
@@ -136,6 +119,9 @@ export class Grid {
     // Remove everything after and including the first matched path index.
     const pathIndexes = state.path.splice(earliestPathIndex)
 
+    // Update dictionary
+    state.dictionary.splice(index)
+
     // Update moves
     state.moves = state.moves.filter((move) => {
       const [type, wordIndex] = move.split(':')
@@ -157,6 +143,32 @@ export class Grid {
   reset () {
     this.#setState(new Grid.#State(this.id, this.width))
     this.#update(Grid.getIndexes(this.#cells))
+  }
+
+  setup () {
+    this.#seedWords = this.#words.getRandom(this.#rand, this.size)
+    const characters = this.#seedWords.join('').split('')
+
+    const indexes = []
+    for (let index = 0; index < this.size; index++) {
+      indexes.push(index)
+
+      const row = Math.floor(index / this.width)
+      const column = index % this.width
+      const coordinates = new Coordinates(row, column, this.width)
+      const characterIndex = Math.floor(this.#rand() * characters.length)
+      const character = characters.splice(characterIndex, 1)[0]
+      const configuration = new Cell.State(index, character)
+      const cell = new Cell(coordinates, configuration)
+
+      this.#cells.push(cell)
+      this.#configuration.push(configuration)
+    }
+
+    this.#update(indexes)
+
+    $grid.replaceChildren(...this.#cells.map((cell) => cell.getElement()))
+    $grid.classList.remove(Grid.ClassNames.Loading)
   }
 
   undo () {
@@ -545,12 +557,12 @@ export class Grid {
     if (pathIndexes.length) {
       const wordCells = Array.from(this.#selection)
       let content = Grid.getContent(wordCells)
-      if (!Word.isValid(content)) {
+      if (!this.#words.isValid(content)) {
         // Try the selection in reverse
         content = Grid.getContent(wordCells.reverse())
       }
 
-      if (Word.isValid(content)) {
+      if (this.#words.isValid(content)) {
         const state = this.#getState()
 
         // Path indexes correspond to the selection as it was anchored to the existing path
@@ -558,6 +570,9 @@ export class Grid {
 
         // Word indexes correspond to the order in which the word was spelled
         state.words.push(Grid.getIndexes(wordCells))
+
+        // Add the dictionary used to verify the word
+        state.dictionary.push(this.#words.getDictionary(content))
 
         // Update moves
         state.moves.push([Grid.Moves.Spell, state.words.length - 1].join(':'))
@@ -624,6 +639,7 @@ export class Grid {
   })
 
   static Name = 'grid'
+  static ClassNames = Object.freeze({ Loading: getClassName(Grid.Name, 'loading') })
   static DefaultId = (() => {
     // The ID for the daily puzzle
     const date = new Date()
@@ -654,6 +670,7 @@ export class Grid {
 
   static #State = class {
     best
+    dictionary
     id
     moves
     path
@@ -661,8 +678,9 @@ export class Grid {
     width
     words
 
-    constructor (id, width, path, swaps, words, moves, best) {
+    constructor (id, width, path, swaps, words, moves, best, dictionary) {
       this.best = best ?? 0
+      this.dictionary = dictionary ?? []
       this.id = id
       this.width = Grid.Widths.includes(width) ? width : Grid.DefaultWidth
       this.path = path ?? []
@@ -699,7 +717,8 @@ export class Grid {
         state.swaps,
         state.words,
         state.moves,
-        state.best
+        state.best,
+        state.dictionary
       )
     }
   }

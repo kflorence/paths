@@ -123,6 +123,7 @@ export class State {
   }
 
   static Params = Object.freeze({
+    Debug: 'debug',
     Expand: 'expand',
     Id: 'id',
     State: 'state',

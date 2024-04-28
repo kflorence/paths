@@ -1,3 +1,4 @@
+import { debug } from './components/debug'
 import { Game } from './components/game'
 import './components/help'
 
@@ -6,10 +7,12 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const game = new Game()
+game.setup()
 
-window.addEventListener('popstate', (event) => {
+window.addEventListener('popstate', () => {
   // Handle user navigating through history
   window.location.reload()
 })
 
+window.debug = debug
 window.game = game
