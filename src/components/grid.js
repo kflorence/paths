@@ -2,7 +2,7 @@ import { Cell } from './cell'
 import { Coordinates } from './coordinates'
 import { State } from './state'
 import { EventListeners } from './eventListeners'
-import { Word } from './word'
+import { DictionaryNames, Word } from './word'
 import { Flags } from './flag'
 import { getClassName } from './util'
 
@@ -49,7 +49,7 @@ export class Grid {
   }
 
   getDictionaries () {
-    return Array.from(new Set(this.#getState().dictionary)).sort()
+    return Array.from(new Set([DictionaryNames.Default].concat(this.#getState().dictionary))).sort()
   }
 
   getMoves () {
