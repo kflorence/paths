@@ -49,7 +49,7 @@ export class Grid {
   }
 
   getDictionaries () {
-    return Array.from(new Set(this.#getState().dictionary))
+    return Array.from(new Set(this.#getState().dictionary)).sort()
   }
 
   getMoves () {
