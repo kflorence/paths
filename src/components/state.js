@@ -30,7 +30,7 @@ export class State {
 
     const params = options.params ?? {}
     for (const key in params) {
-      const value = State.get(params[key])
+      const value = State.getParam(params[key])
       if (value !== undefined) {
         this.set(key, value)
       }
@@ -79,21 +79,32 @@ export class State {
     return base64encode(value)
   }
 
-  static get (param) {
+  static getParam (param) {
     if (!State.params.has(param.name)) {
       return
     }
 
-    const raw = State.params.get(param.name)
-    const value = param.isEncoded ? State.decode(raw) : raw
-    return param.isJson ? JSON.parse(value) : value
+    return State.#getValue(param, State.params.get(param.name))
+  }
+
+  static getStorage (param) {
+    const value = localStorage.getItem(param.name)
+    console.log(param, value)
+    if (value !== null) {
+      return State.#getValue(param, value)
+    }
+  }
+
+  static #getValue (param, value) {
+    const decoded = param.isEncoded ? State.decode(value) : value
+    return param.isJson ? JSON.parse(decoded) : decoded
   }
 
   static reload () {
     location.assign(State.url.search)
   }
 
-  static set (param, value) {
+  static setParam (param, value) {
     if (!State.params.has(param.name)) {
       return
     }

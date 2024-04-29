@@ -29,7 +29,14 @@ export class Grid {
 
   constructor (words) {
     const ephemeral = State.params.has(State.Params.State)
-    const state = ephemeral ? Grid.#State.fromState(State.get(Grid.StateParam)) : Grid.#State.fromParams()
+    const state = ephemeral ? Grid.#State.fromState(State.getParam(Grid.StateParam)) : Grid.#State.fromParams()
+
+    if (ephemeral) {
+      // Load up the local state when viewing someone else's
+      const local = State.getStorage(new State.Param(state.getSeed(), false, true))
+      // Show the current user's best score, not the user that shared the URL
+      state.best = local.best
+    }
 
     this.ephemeral = ephemeral
     this.id = state.id
@@ -437,7 +444,7 @@ export class Grid {
     this.#state.set(state)
     if (this.ephemeral) {
       // Update the state URL param
-      State.set(Grid.StateParam, state)
+      State.setParam(Grid.StateParam, state)
     }
   }
 
@@ -524,10 +531,14 @@ export class Grid {
     })
 
     this.#pointerIndex = lastPathIndex
-    const statistics = this.getStatistics(state)
-    if (statistics.score > state.best) {
-      state.best = statistics.score
-      this.#setState(state)
+
+    if (!this.ephemeral) {
+      // Update best score for local user only
+      const statistics = this.getStatistics(state)
+      if (statistics.score > state.best) {
+        state.best = statistics.score
+        this.#setState(state)
+      }
     }
 
     this.#dispatch(Grid.Events.Update)
