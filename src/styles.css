@@ -190,12 +190,6 @@ p.center {
   text-decoration: none;
 }
 
-#container header .flex-left,
-#footer .container .flex-left {
-  flex-basis: fit-content;
-  font-size: 24px;
-}
-
 #container footer {
   flex-direction: column;
   margin-bottom: 1em;
@@ -302,6 +296,7 @@ p.center {
 }
 
 #status {
+  font-size: 24px;
   padding: 1em 0;
   text-wrap: nowrap;
 }
@@ -311,6 +306,7 @@ p.center {
 }
 
 #title {
+  font-size: 24px;
   padding: 1em 0 1em 1em;
 }
 
@@ -388,6 +384,10 @@ p.center {
   display: inline-block;
 }
 
+.drawer .container {
+  align-items: center;
+}
+
 .drawer .section {
   margin-top: 1em;
 }
@@ -406,6 +406,7 @@ p.center {
   align-items: stretch;
   display: flex;
   flex: 1;
+  flex-basis: fit-content;
 }
 
 .flex-center {
@@ -496,7 +497,7 @@ p.center {
   align-items: center;
   border-radius: 50%;
   display: flex;
-  font-size: clamp(1em, 6vw, 2em);
+  font-size: clamp(1.5em, 7vw, 2em);
   height: 80%;
   justify-content: center;
   text-transform: uppercase;
