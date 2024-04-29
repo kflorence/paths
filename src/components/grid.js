@@ -33,7 +33,7 @@ export class Grid {
 
     if (ephemeral) {
       // Load up the local state when viewing someone else's
-      const local = State.getStorage(new State.Param(state.getSeed(), false, true))
+      const local = State.getStorage(new State.Param(state.getSeed(), false, true)) ?? { best: 0 }
       // Show the current user's best score, not the user that shared the URL
       state.best = local.best
     }
