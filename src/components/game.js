@@ -24,6 +24,7 @@ const $undo = document.getElementById('undo')
 const $width = document.getElementById('width')
 const $words = document.getElementById('words')
 
+const confirm = window.confirm
 const crypto = window.crypto
 const tippy = Tippy($share, { content: 'Copied!', theme: 'custom', trigger: 'manual' })
 
@@ -70,8 +71,14 @@ export class Game {
   }
 
   reset () {
-    this.#grid.reset()
-    this.update()
+    // Resolving in promise to prevent the Chrome 'Violation' warning in console
+    return Promise.resolve().then(() => {
+      if (!confirm('Are you sure you want to reset the grid?')) {
+        return
+      }
+      this.#grid.reset()
+      this.update()
+    })
   }
 
   async setup () {
