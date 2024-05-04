@@ -175,6 +175,12 @@ p.center {
   margin: 1em auto;
 }
 
+#container {
+  display: flex;
+  flex-direction: column;
+  width: min-content;
+}
+
 #container header,
 #container footer {
   align-items: stretch;
@@ -218,6 +224,11 @@ p.center {
   cursor: pointer;
   display: inline-flex;
   padding: 0.5em;
+}
+
+#grid {
+  box-sizing: border-box;
+  width: 100%;
 }
 
 #letter-points .letters {
@@ -308,6 +319,7 @@ p.center {
 #title {
   font-size: 24px;
   padding: 1em 0 1em 1em;
+  text-wrap: nowrap;
 }
 
 #words .word {
@@ -455,7 +467,7 @@ p.center {
   display: flex;
   justify-content: center;
   position: relative;
-  width: clamp(32px, 12vw, 64px);
+  width: clamp(48px, 12vw, 64px);
 }
 
 .grid.example {
@@ -475,12 +487,20 @@ p.center {
   grid-template-columns: repeat(7, 1fr);
 }
 
+.grid[data-width="7"] .cell {
+  width: clamp(48px, 12vw, 64px);
+}
+
 .grid[data-width="9"] {
   grid-template-columns: repeat(9, 1fr);
 }
 
 .grid[data-width="9"] .cell {
   width: clamp(32px, 9vw, 64px);
+}
+
+.grid[data-width="9"] .cell .content {
+  font-size: clamp(1.5em, 6vw, 2em);
 }
 
 .grid .cell .background {
@@ -497,7 +517,7 @@ p.center {
   align-items: center;
   border-radius: 50%;
   display: flex;
-  font-size: clamp(1.5em, 7vw, 2em);
+  font-size: 2em;
   height: 80%;
   justify-content: center;
   text-transform: uppercase;
