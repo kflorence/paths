@@ -26,6 +26,21 @@ function base64unescape (string) {
     .replace(/-/g, '+').replace(/_/g, '/')
 }
 
+export function randomIntInclusive (rand, max, min = 0) {
+  return Math.floor(rand() * (max - min + 1) + min)
+}
+
+export function shuffle (rand, array) {
+  // https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle#The_modern_algorithm
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    const temp = array[i]
+    array[i] = array[j]
+    array[j] = temp
+  }
+  return array
+}
+
 export async function writeToClipboard (string) {
   try {
     await navigator.clipboard.writeText(string)

@@ -17,26 +17,28 @@ export const Directions = Object.freeze({
   West: getClassName(direction, west)
 })
 
+const DiagonalDirections = Object.freeze([
+  Directions.NorthEast,
+  Directions.NorthWest,
+  Directions.SouthEast,
+  Directions.SouthWest
+])
+
 export class Coordinates {
+  column
   id
-  index
+  neighbors
+  row
 
-  #neighbors
-  #width
-
-  constructor (row, column, width) {
+  constructor (row, column) {
     this.id = [row, column].join(',')
     this.row = Number(row)
     this.column = Number(column)
-
-    if (width !== undefined) {
-      this.#width = width
-      this.index = (this.row * width) + this.column
-    }
+    this.neighbors = Coordinates.getNeighbors(this)
   }
 
   add (other) {
-    return new Coordinates(this.row + other.row, this.column + other.column, this.#width)
+    return new Coordinates(this.row + other.row, this.column + other.column)
   }
 
   equals (other) {
@@ -44,20 +46,16 @@ export class Coordinates {
   }
 
   getDirection (other) {
-    return this.getNeighbors().find((neighbor) => neighbor.coordinates.equals(other))?.direction
-  }
-
-  getNeighbors () {
-    return this.#neighbors ?? (this.#neighbors = Coordinates.getNeighbors(this))
+    return this.neighbors.find((neighbor) => neighbor.coordinates.equals(other))?.direction
   }
 
   getNeighborsCrossing (other) {
     const crossing = Coordinates.Crossings[this.getDirection(other)] ?? []
-    return this.getNeighbors().filter((neighbor) => crossing.includes(neighbor.direction))
+    return this.neighbors.filter((neighbor) => crossing.includes(neighbor.direction))
   }
 
   isNeighbor (other) {
-    return this.getNeighbors().some((neighbor) => neighbor.coordinates.equals(other))
+    return this.neighbors.some((neighbor) => neighbor.coordinates.equals(other))
   }
 
   toString () {
@@ -79,23 +77,23 @@ export class Coordinates {
   static Neighbor = class {
     coordinates
     direction
-    index
+    isDirectionDiagonal
 
-    constructor (direction, coordinates) {
-      this.direction = direction
+    constructor (coordinates, direction) {
       this.coordinates = coordinates
-      this.index = coordinates.index
+      this.direction = direction
+      this.isDirectionDiagonal = DiagonalDirections.includes(direction)
     }
   }
 
   static Neighbors = Object.freeze([
-    new Coordinates.Neighbor(Directions.East, new Coordinates(0, 1)),
-    new Coordinates.Neighbor(Directions.North, new Coordinates(-1, 0)),
-    new Coordinates.Neighbor(Directions.NorthEast, new Coordinates(-1, 1)),
-    new Coordinates.Neighbor(Directions.NorthWest, new Coordinates(-1, -1)),
-    new Coordinates.Neighbor(Directions.South, new Coordinates(1, 0)),
-    new Coordinates.Neighbor(Directions.SouthEast, new Coordinates(1, 1)),
-    new Coordinates.Neighbor(Directions.SouthWest, new Coordinates(1, -1)),
-    new Coordinates.Neighbor(Directions.West, new Coordinates(0, -1))
+    new Coordinates.Neighbor(new Coordinates(0, 1), Directions.East),
+    new Coordinates.Neighbor(new Coordinates(-1, 0), Directions.North),
+    new Coordinates.Neighbor(new Coordinates(-1, 1), Directions.NorthEast),
+    new Coordinates.Neighbor(new Coordinates(-1, -1), Directions.NorthWest),
+    new Coordinates.Neighbor(new Coordinates(1, 0), Directions.South),
+    new Coordinates.Neighbor(new Coordinates(1, 1), Directions.SouthEast),
+    new Coordinates.Neighbor(new Coordinates(1, -1), Directions.SouthWest),
+    new Coordinates.Neighbor(new Coordinates(0, -1), Directions.West)
   ])
 }

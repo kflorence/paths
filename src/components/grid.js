@@ -18,6 +18,8 @@ export class Grid {
   #cells = []
   #configuration = []
   #eventListeners = new EventListeners({ context: this, element: $grid })
+  #maxColumn
+  #maxRow
   #pointerIndex = -1
   #rand
   #seed
@@ -42,6 +44,7 @@ export class Grid {
     this.id = state.id
     this.width = state.width
     this.size = this.width * this.width
+    this.#maxColumn = this.#maxRow = this.width - 1
     this.#seed = state.getSeed()
     this.#rand = Grid.splitmix32(this.#seed)
     this.#state = new State(this.#seed, state, { ephemeral })
@@ -92,6 +95,15 @@ export class Grid {
   getWords (state) {
     return (state ?? this.#getState())
       .words.map((indexes) => new Word(this.width, indexes.map((index) => this.#cells[index])))
+  }
+
+  isValid (coordinates) {
+    return (
+      coordinates.column >= 0 &&
+      coordinates.column <= this.#maxColumn &&
+      coordinates.row >= 0 &&
+      coordinates.row <= this.#maxRow
+    )
   }
 
   removeSwap (index) {
@@ -278,7 +290,7 @@ export class Grid {
     const [first, second] = source
       .getCoordinates()
       .getNeighborsCrossing(target.getCoordinates())
-      .map((neighbor) => this.#cells[neighbor.index])
+      .map((neighbor) => this.#cells[neighbor.index]) // FIXME
     // Check both of them to see if they are connected to the other one in any direction.
     return first?.isConnected(second) || second?.isConnected(first) || false
   }
@@ -664,6 +676,12 @@ export class Grid {
   static Events = Object.freeze({
     Selection: getClassName(Grid.Name, 'selection'),
     Update: getClassName(Grid.Name, 'update')
+  })
+
+  static Difficulties = Object.freeze({
+    Easy: 1,
+    Medium: 2,
+    Hard: 3
   })
 
   static Today = Date.parse(Grid.DefaultId)

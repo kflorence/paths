@@ -1,5 +1,6 @@
 import { lettersByCharacter } from './letter'
 import { Cell } from './cell'
+import { shuffle } from './util'
 
 export class Word {
   content
@@ -133,6 +134,8 @@ export class Words {
       count += nextWord.length
 
       if (count === length) {
+        // Shuffle the results, since the algorithm is biased towards putting the shortest word last.
+        shuffle(rand, result)
         console.debug(`getWords result: ${result.join(', ')}`)
         return result
       }
