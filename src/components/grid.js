@@ -165,6 +165,8 @@ export class Grid {
   }
 
   setup () {
+    // TODO: use config from state, if available, otherwise generate.
+
     this.#seedWords = this.#words.getRandom(this.#rand, this.size)
     const characters = this.#seedWords.join('').split('')
 
@@ -617,7 +619,8 @@ export class Grid {
    * Largely inspired by MurmurHash2/3, but with a focus on speed/simplicity.
    */
   static cyrb53 = function (str, seed = 0) {
-    let h1 = 0xdeadbeef ^ seed; let h2 = 0x41c6ce57 ^ seed
+    let h1 = 0xdeadbeef ^ seed
+    let h2 = 0x41c6ce57 ^ seed
     for (let i = 0, ch; i < str.length; i++) {
       ch = str.charCodeAt(i)
       h1 = Math.imul(h1 ^ ch, 2654435761)
@@ -678,10 +681,9 @@ export class Grid {
     Update: getClassName(Grid.Name, 'update')
   })
 
-  static Difficulties = Object.freeze({
-    Easy: 1,
-    Medium: 2,
-    Hard: 3
+  static Generators = Object.freeze({
+    Default: 'default',
+    Scramble: 'scramble'
   })
 
   static Today = Date.parse(Grid.DefaultId)
@@ -697,6 +699,64 @@ export class Grid {
     }
   }
 
+  static Generator = class {
+    cells
+    characters
+    difficulty
+    rand
+    size
+    width
+    words
+    wordBoundaries = {}
+    wordBoundaryIndexes
+
+    constructor (words, width, rand, difficulty) {
+      const size = width * width
+
+      this.cells = new Array(size)
+      this.difficulty = difficulty
+      this.rand = rand
+      this.size = size
+      this.width = width
+      this.words = words
+    }
+
+    generate () {
+      this.wordBoundaries = Object.fromEntries(this.words.reduce((entries, word, index) => {
+        const [previousBoundary] = entries[entries.length - 1] ?? [-1]
+        entries.push([previousBoundary + word.length, index])
+        return entries
+      }, []))
+      this.wordBoundaryIndexes = Object.keys(this.wordBoundaries).map(Number).sort((a, b) => a - b)
+      this.characters = this.words.reduce((characters, word) => characters.concat(word.split('')), [])
+
+      return this.cells
+    }
+
+    getCoordinates (index) {
+      return new Coordinates(this.getRow(index), this.getColumn(index), this.width)
+    }
+
+    getColumn (index) {
+      return index % this.width
+    }
+
+    getIndex (coordinates) {
+      return (coordinates.row * this.width) + coordinates.column
+    }
+
+    getRow (index) {
+      return Math.floor(index / this.width)
+    }
+
+    static Difficulty = Object.freeze({
+      Easy: 1,
+      Medium: 2,
+      Hard: 3
+    })
+  }
+
+  // TODO: create storage for config and metadata. move best into metadata
   static #State = class {
     best
     dictionary

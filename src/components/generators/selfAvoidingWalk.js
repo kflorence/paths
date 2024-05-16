@@ -1,11 +1,14 @@
-import { GridGenerator } from '../gridGenerator'
 import { Cell } from '../cell'
 import { randomIntInclusive } from '../util'
+import { Grid } from '../grid'
 
-export class Pathfinder extends GridGenerator {
-  #cells
+/**
+ * Picks a random starting location and then performs a self avoiding walk through the grid, generating a valid path
+ * by placing the next available character in each cell visited, making sure to visit each cell once and to avoid
+ * causing the path to cross.
+ */
+export class SelfAvoidingWalk extends Grid.Generator {
   #characters
-  #difficulty
   #invalidStepIndexes
   #steps = []
   #tries = 0
@@ -13,43 +16,26 @@ export class Pathfinder extends GridGenerator {
   #wordBoundaries
   #wordBoundaryIndexes
 
-  constructor (words, width, rand, difficulty) {
+  // TODO: difficulty
+  // TODO: hints
+  constructor (words, width, rand) {
     super(words, width, rand)
-
-    this.#cells = new Array(this.size)
-    this.#difficulty = difficulty
     this.#restartThreshold = this.size * 2
-
-    // TODO higher difficulty = more swaps
-    // TODO hints, which can utilize the word boundaries
-
-    let lastIndex = -1
-    words.forEach((word, wordIndex) => {
-      lastIndex += word.length
-      this.#wordBoundaries[lastIndex] = wordIndex
-    })
-
-    this.#wordBoundaryIndexes = Object.keys(this.#wordBoundaries)
-      .map(Number)
-      .sort((a, b) => a - b)
-
-    this.#characters = words.reduce(
-      (acc, word) => acc.concat(word.split('')),
-      []
-    )
   }
 
   generate () {
+    super.generate()
+
     while (this.#steps.length < this.size) {
       this.#step()
     }
 
-    return this.#cells
+    return this.cells
   }
 
   #getAvailableCellIndexes () {
     // Return an array of all indexes that don't contain a value
-    return [...this.#cells].flatMap((v, i) => (v === undefined ? [i] : []))
+    return [...this.cells].flatMap((v, i) => (v === undefined ? [i] : []))
   }
 
   #getConnectableIndexes (pool) {
@@ -189,7 +175,8 @@ export class Pathfinder extends GridGenerator {
     const character = this.#characters[this.#steps.length]
     const cell = new Cell(coordinates, new Cell.State(index, character))
 
-    this.#cells[index] = cell
+    this.cells[index] = cell
+
     this.#steps.push(new Step(cell, lastStep))
   }
 
