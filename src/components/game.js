@@ -3,8 +3,8 @@ import { EventListeners } from './eventListeners'
 import Tippy from 'tippy.js'
 import 'tippy.js/dist/tippy.css'
 import { State } from './state'
-import { Dictionaries, DictionaryNames, Word, Words } from './word'
-import { writeToClipboard } from './util'
+import { Dictionaries, DictionaryNames, Word, Dictionaries } from './word'
+import { reload, writeToClipboard } from './util'
 import { Cell } from './cell'
 
 const $expand = document.getElementById('expand')
@@ -28,7 +28,7 @@ const confirm = window.confirm
 const crypto = window.crypto
 const tippy = Tippy($share, { content: 'Copied!', theme: 'custom', trigger: 'manual' })
 
-if (State.params.has(Grid.StateParam.name)) {
+if (State.params.has(Grid.Cache.name)) {
   document.body.classList.add('share')
 }
 
@@ -45,7 +45,7 @@ export class Game {
       { params: { [State.Params.Expand]: new State.Param(State.Params.Expand) } }
     )
 
-    this.#words = new Words()
+    this.#words = new Dictionaries()
     this.#grid = new Grid(this.#words)
 
     $new.href = `?${State.Params.Id}=${crypto.randomUUID().split('-')[0]}`
@@ -185,7 +185,7 @@ export class Game {
 
   #onWidthChange (event) {
     State.params.set(State.Params.Width, event.target.value)
-    State.reload()
+    reload()
   }
 
   #updateDrawer () {

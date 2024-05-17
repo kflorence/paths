@@ -2,14 +2,14 @@ import { Cell } from './cell'
 import { Coordinates } from './coordinates'
 import { State } from './state'
 import { EventListeners } from './eventListeners'
-import { DictionaryNames, Word } from './word'
+import { Word } from './word'
 import { Flags } from './flag'
-import { getClassName } from './util'
+import { getClassName, history, url, urlParams } from './util'
+import { Cache } from './cache'
 
 const $grid = document.getElementById('grid')
 
 export class Grid {
-  ephemeral
   id
   size
   width
@@ -30,23 +30,12 @@ export class Grid {
   #words
 
   constructor (words) {
-    const ephemeral = State.params.has(State.Params.State)
-    const state = ephemeral ? Grid.#State.fromState(State.getParam(Grid.StateParam)) : Grid.#State.fromParams()
+    const initialState = Grid.State.load()
 
-    if (ephemeral) {
-      // Load up the local state when viewing someone else's
-      const local = State.getStorage(new State.Param(state.getSeed(), false, true)) ?? { best: 0 }
-      // Show the current user's best score, not the user that shared the URL
-      state.best = local.best
-    }
-
-    this.ephemeral = ephemeral
-    this.id = state.id
-    this.width = state.width
+    this.id = Grid.getId()
+    this.width = Grid.getWidth()
     this.size = this.width * this.width
     this.#maxColumn = this.#maxRow = this.width - 1
-    this.#seed = state.getSeed()
-    this.#rand = Grid.splitmix32(this.#seed)
     this.#state = new State(this.#seed, state, { ephemeral })
     this.#words = words
 
@@ -160,7 +149,7 @@ export class Grid {
   }
 
   reset () {
-    this.#setState(new Grid.#State(this.id, this.width))
+    this.#setState(new Grid.State(this.id, this.width))
     this.#update(Grid.getIndexes(this.#cells))
   }
 
@@ -284,7 +273,7 @@ export class Grid {
   }
 
   #getState () {
-    return Grid.#State.fromState(this.#state.get())
+    return Grid.State.fromShareUrl(this.#state.get())
   }
 
   #isCrossing (source, target) {
@@ -456,9 +445,8 @@ export class Grid {
 
   #setState (state) {
     this.#state.set(state)
-    if (this.ephemeral) {
-      // Update the state URL param
-      State.setParam(Grid.StateParam, state)
+    if (urlParams.has(Cache.Keys.Solution)) {
+      Grid.SolutionCache.set(state)
     }
   }
 
@@ -546,7 +534,8 @@ export class Grid {
 
     this.#pointerIndex = lastPathIndex
 
-    if (!this.ephemeral) {
+    // FIXME
+    if (!this.isShareUrl) {
       // Update best score for local user only
       const statistics = this.getStatistics(state)
       if (statistics.score > state.best) {
@@ -612,52 +601,34 @@ export class Grid {
     this.#update(indexesToUpdate)
   }
 
-  /**
-   * cyrb53 (c) 2018 bryc (github.com/bryc)
-   * License: Public domain. Attribution appreciated.
-   * A fast and simple 53-bit string hash function with decent collision resistance.
-   * Largely inspired by MurmurHash2/3, but with a focus on speed/simplicity.
-   */
-  static cyrb53 = function (str, seed = 0) {
-    let h1 = 0xdeadbeef ^ seed
-    let h2 = 0x41c6ce57 ^ seed
-    for (let i = 0, ch; i < str.length; i++) {
-      ch = str.charCodeAt(i)
-      h1 = Math.imul(h1 ^ ch, 2654435761)
-      h2 = Math.imul(h2 ^ ch, 1597334677)
-    }
-    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507)
-    h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909)
-    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507)
-    h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909)
-    return 4294967296 * (2097151 & h2) + (h1 >>> 0)
+  static getContent (cells) {
+    return cells.map((cell) => cell.getContent()).join('')
   }
 
   static getIndexes (cells) {
     return cells.map((cell) => cell.getIndex())
   }
 
-  static getContent (cells) {
-    return cells.map((cell) => cell.getContent()).join('')
+  static getId () {
+    const id = urlParams.get(Grid.Params.Id)
+    return (id === null || (Grid.DateRegex.test(id) && Date.parse(id) > Grid.Today)) ? Grid.DefaultId : id
   }
 
-  /**
-   * A seeded pseudo-random number generator.
-   * @see https://github.com/bryc/code/blob/master/jshash/PRNGs.md
-   * @param a the seed value
-   * @returns {function(): *} a function which generates static pseudo-random numbers per seed and call
-   */
-  static splitmix32 (a) {
-    return function () {
-      a |= 0
-      a = a + 0x9e3779b9 | 0
-      let t = a ^ a >>> 16
-      t = Math.imul(t, 0x21f0aaad)
-      t = t ^ t >>> 15
-      t = Math.imul(t, 0x735a2d97)
-      return ((t ^ t >>> 15) >>> 0) / 4294967296
-    }
+  static getWidth () {
+    const width = Number(urlParams.get(Grid.Params.Width))
+    return Grid.Widths.includes(width) ? width : Grid.DefaultWidth
   }
+
+  static CacheKeys = Object.freeze({
+    Solution: 'solution'
+  })
+
+  static Params = Object.freeze({
+    Debug: 'debug',
+    Expand: 'expand',
+    Id: 'id',
+    Width: 'width'
+  })
 
   static Moves = Object.freeze({
     Spell: 'spell',
@@ -666,6 +637,7 @@ export class Grid {
 
   static Name = 'grid'
   static ClassNames = Object.freeze({ Loading: getClassName(Grid.Name, 'loading') })
+  static DateRegex = /^\d{4}-\d{2}-\d{2}$/
   static DefaultId = (() => {
     // The ID for the daily puzzle
     const date = new Date()
@@ -681,10 +653,15 @@ export class Grid {
     Update: getClassName(Grid.Name, 'update')
   })
 
-  static Generators = Object.freeze({
-    Default: 'default',
-    Scramble: 'scramble'
-  })
+  static SolutionCache = new Cache(
+    Cache.Keys.Solution,
+    urlParams.get,
+    (key, value) => {
+      urlParams.set(key, value)
+      history.pushState({ [key]: value }, '', url)
+    },
+    [Cache.Encoders.Base64, Cache.Encoders.Json]
+  )
 
   static Today = Date.parse(Grid.DefaultId)
   static Widths = Object.freeze([5, 7, 9])
@@ -703,6 +680,8 @@ export class Grid {
     cells
     characters
     difficulty
+    hash
+    id
     rand
     size
     width
@@ -710,15 +689,21 @@ export class Grid {
     wordBoundaries = {}
     wordBoundaryIndexes
 
-    constructor (words, width, rand, difficulty) {
+    constructor (id, width, difficulty, dictionary) {
       const size = width * width
+
+      // Anything that influences the outcome of the grid should be passed in here
+      const seed = [id, width, difficulty].join(',')
+      const hash = Grid.Generator.cyrb53(seed)
 
       this.cells = new Array(size)
       this.difficulty = difficulty
-      this.rand = rand
+      this.id = id
+      this.rand = Grid.Generator.splitmix32(hash)
+      this.hash = hash
       this.size = size
       this.width = width
-      this.words = words
+      this.words = dictionary.getWords(this.rand, this.size)
     }
 
     generate () {
@@ -754,10 +739,54 @@ export class Grid {
       Medium: 2,
       Hard: 3
     })
+
+    static Names = Object.freeze({
+      Default: 'default',
+      Scramble: 'scramble'
+    })
+
+    /**
+     * cyrb53 (c) 2018 bryc (github.com/bryc)
+     * License: Public domain. Attribution appreciated.
+     * A fast and simple 53-bit string hash function with decent collision resistance.
+     * Largely inspired by MurmurHash2/3, but with a focus on speed/simplicity.
+     */
+    static cyrb53 = function (str, seed = 0) {
+      let h1 = 0xdeadbeef ^ seed
+      let h2 = 0x41c6ce57 ^ seed
+      for (let i = 0, ch; i < str.length; i++) {
+        ch = str.charCodeAt(i)
+        h1 = Math.imul(h1 ^ ch, 2654435761)
+        h2 = Math.imul(h2 ^ ch, 1597334677)
+      }
+      h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507)
+      h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909)
+      h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507)
+      h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909)
+      return 4294967296 * (2097151 & h2) + (h1 >>> 0)
+    }
+
+    /**
+     * A seeded pseudo-random number generator.
+     * @see https://github.com/bryc/code/blob/master/jshash/PRNGs.md
+     * @param a the seed value
+     * @returns {function(): *} a function which generates static pseudo-random numbers per seed and call
+     */
+    static splitmix32 (a) {
+      return function () {
+        a |= 0
+        a = a + 0x9e3779b9 | 0
+        let t = a ^ a >>> 16
+        t = Math.imul(t, 0x21f0aaad)
+        t = t ^ t >>> 15
+        t = Math.imul(t, 0x735a2d97)
+        return ((t ^ t >>> 15) >>> 0) / 4294967296
+      }
+    }
   }
 
   // TODO: create storage for config and metadata. move best into metadata
-  static #State = class {
+  static State = class {
     best
     dictionary
     id
@@ -778,28 +807,16 @@ export class Grid {
       this.moves = moves ?? []
     }
 
-    getSeed () {
-      return Grid.cyrb53([this.id, this.width].join(','))
-    }
-
-    static fromParams () {
-      let id = State.params.get(State.Params.Id)
-      if (id !== null) {
-        const date = Date.parse(id)
-        if (!isNaN(date) && date > Grid.Today) {
-          console.debug('The provided ID is for a future date, defaulting to the ID for today.', id)
-          id = Grid.DefaultId
-        }
-      } else {
-        id = Grid.DefaultId
+    static load () {
+      if (urlParams.has(Grid.CacheKeys.Solution)) {
+        const state = Grid.SolutionCache.get()
       }
 
-      const width = State.params.get(State.Params.Width)
-      return new Grid.#State(id, Number(width))
+      return new Grid.State()
     }
 
-    static fromState (state) {
-      return new Grid.#State(
+    static fromShareUrl (state) {
+      return new Grid.State(
         state.id,
         state.width,
         state.path,
@@ -809,6 +826,32 @@ export class Grid {
         state.best,
         state.dictionary
       )
+    }
+
+    static Configuration = class {
+      constructor (characters, sources) {
+        // TODO: some generators could output the highest possible score, might want to store that
+      }
+    }
+
+    static Solution = class {
+      moves
+      path
+      swaps
+      words
+
+      constructor (path, moves, swaps, words) {
+        this.path = path ?? []
+        this.moves = moves ?? []
+        this.swaps = swaps ?? []
+        this.words = words ?? []
+      }
+    }
+
+    static User = class {
+      highScore
+
+      constructor (highScore) {}
     }
   }
 
@@ -821,8 +864,6 @@ export class Grid {
       this.emoji = emoji
     }
   }
-
-  static StateParam = new State.Param(State.Params.State, true, true)
 
   static Statistics = class {
     averageWordLength

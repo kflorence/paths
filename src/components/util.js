@@ -1,6 +1,12 @@
 import pako from 'pako'
 
+export const history = window.history
+const location = window.location
+export const localStorage = window.localStorage
 const navigator = window.navigator
+
+export const url = new URL(location)
+export const urlParams = url.searchParams
 
 export function getClassName (...parts) {
   return parts.join('-')
@@ -28,6 +34,10 @@ function base64unescape (string) {
 
 export function randomIntInclusive (rand, max, min = 0) {
   return Math.floor(rand() * (max - min + 1) + min)
+}
+
+export function reload () {
+  location.assign(url.search)
 }
 
 export function shuffle (rand, array) {

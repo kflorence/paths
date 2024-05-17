@@ -1,40 +1,36 @@
-import { base64decode, base64encode } from './util'
-
-const history = window.history
-const localStorage = window.localStorage
-const location = window.location
+import { localStorage } from './util'
+import { Cache } from './cache'
 
 export class State {
-  key
-
-  #ephemeral
+  #cache
+  #persistence
   #value
 
-  constructor (key, value, options = {}) {
-    this.key = key
+  constructor (key, defaultValue, options = { encoding: [], overrides: [], persistence: true }) {
+    this.#cache = new Cache(key, localStorage.getItem, localStorage.setItem, options.encoding)
+    this.#persistence = options.persistence !== false
+    this.#value = structuredClone(defaultValue)
 
-    this.#ephemeral = options.ephemeral === true
-    this.#value = structuredClone(value)
-
-    if (!this.#ephemeral && key !== undefined) {
-      const value = localStorage.getItem(key)
-      if (value) {
+    if (this.#persistence) {
+      try {
+        const value = this.#cache.get()
         console.debug(`Found local cache for key '${key}'.`, value)
-        try {
-          this.set(JSON.parse(value))
-        } catch (e) {
-          console.debug(`Could not parse cache for key '${key}'.`, e.message)
-        }
+        this.set(value)
+      } catch (e) {
+        console.error(`Could not load cache for key '${key}': ${e.message}`)
       }
     }
 
-    const params = options.params ?? {}
-    for (const key in params) {
-      const value = State.getParam(params[key])
-      if (value !== undefined) {
-        this.set(key, value)
+    const overrides = options.overrides ?? []
+    overrides.forEach((cache) => {
+      try {
+        const value = cache.get()
+        console.debug(`Overriding local cache at key '${cache.key}'.`, value)
+        this.set(cache.key, value)
+      } catch (e) {
+        console.error(`Could not override local cache at key '${cache.key}': ${e.message}`)
       }
-    }
+    })
   }
 
   get (key) {
@@ -42,102 +38,32 @@ export class State {
   }
 
   set (key, value) {
-    if (value === undefined) {
+    if (arguments.length === 1) {
       value = key
-      key = this.key
+      key = this.#cache.key
     }
 
-    const isRootKey = key === this.key
+    if (value === undefined) {
+      return
+    }
+
+    const isCacheKey = key === this.#cache.key
 
     value = structuredClone(value)
-    if (isRootKey) {
+    if (isCacheKey) {
       this.#value = value
     } else {
       this.#value[key] = value
     }
 
-    if (!this.#ephemeral) {
-      // Local storage will not be updated if state is set to ephemeral
-      localStorage.setItem(this.key, JSON.stringify(this.#value))
+    if (this.#persistence) {
+      this.#cache.set(this.#value)
     }
 
     return this.get()
   }
 
-  update (f) {
-    return this.set(f(this.get()))
+  update (updater) {
+    return this.set(updater(this.get()))
   }
-
-  static url = new URL(location)
-  static params = State.url.searchParams
-
-  static decode (value) {
-    return base64decode(value)
-  }
-
-  static encode (value) {
-    return base64encode(value)
-  }
-
-  static getParam (param) {
-    if (!State.params.has(param.name)) {
-      return
-    }
-
-    return State.#getValue(param, State.params.get(param.name))
-  }
-
-  static getStorage (param) {
-    const value = localStorage.getItem(param.name)
-    console.log(param, value)
-    if (value !== null) {
-      return State.#getValue(param, value)
-    }
-  }
-
-  static #getValue (param, value) {
-    const decoded = param.isEncoded ? State.decode(value) : value
-    return param.isJson ? JSON.parse(decoded) : decoded
-  }
-
-  static reload () {
-    location.assign(State.url.search)
-  }
-
-  static setParam (param, value) {
-    if (!State.params.has(param.name)) {
-      return
-    }
-
-    if (param.isJson) {
-      value = JSON.stringify(value)
-    }
-
-    if (param.isEncoded) {
-      value = State.encode(value)
-    }
-
-    State.params.set(param.name, value)
-    history.pushState({ [param.name]: value }, '', State.url)
-  }
-
-  static Param = class {
-    name
-    isEncoded
-    isJson
-
-    constructor (name, isEncoded, isJson) {
-      this.name = name
-      this.isEncoded = isEncoded === true
-      this.isJson = isJson === true
-    }
-  }
-
-  static Params = Object.freeze({
-    Debug: 'debug',
-    Expand: 'expand',
-    Id: 'id',
-    State: 'state',
-    Width: 'width'
-  })
 }
