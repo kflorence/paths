@@ -3,9 +3,11 @@ import { EventListeners } from './eventListeners'
 import Tippy from 'tippy.js'
 import 'tippy.js/dist/tippy.css'
 import { State } from './state'
-import { Dictionaries, DictionaryNames, Word, Dictionaries } from './word'
-import { reload, writeToClipboard } from './util'
+import { getBaseUrl, reload, urlParams, writeToClipboard } from './util'
 import { Cell } from './cell'
+import { Cache } from './cache'
+import { Dictionary } from './dictionary'
+import { Word } from './word'
 
 const $expand = document.getElementById('expand')
 const $footer = document.getElementById('footer')
@@ -28,28 +30,25 @@ const confirm = window.confirm
 const crypto = window.crypto
 const tippy = Tippy($share, { content: 'Copied!', theme: 'custom', trigger: 'manual' })
 
-if (State.params.has(Grid.Cache.name)) {
+if (urlParams.has(Grid.Params.Solution)) {
   document.body.classList.add('share')
 }
 
 export class Game {
+  #dictionary
   #eventListeners = new EventListeners({ context: this })
   #grid
   #state
-  #words
 
   constructor () {
-    this.#state = new State(
-      'game',
-      {},
-      { params: { [State.Params.Expand]: new State.Param(State.Params.Expand) } }
-    )
+    const overrides = [new Cache(Game.Params.Expand, urlParams.get, urlParams.set)]
+    this.#state = new State('game', {}, { overrides })
 
-    this.#words = new Dictionaries()
-    this.#grid = new Grid(this.#words)
+    this.#dictionary = new Dictionary()
+    this.#grid = new Grid(this.#dictionary)
 
-    $new.href = `?${State.Params.Id}=${crypto.randomUUID().split('-')[0]}`
-    $path.href = `?${State.Params.Id}=${this.#grid.id}`
+    $new.href = `?${Grid.Params.Id}=${crypto.randomUUID().split('-')[0]}`
+    $path.href = `?${Grid.Params.Id}=${this.#grid.id}`
     $path.textContent = this.#grid.id
 
     this.#eventListeners.add([
@@ -83,7 +82,7 @@ export class Game {
 
   async setup () {
     // Load the base dictionary, and generate the grid from that
-    await this.#words.load(Dictionaries.Default)
+    await this.#dictionary.load(Dictionary.Sources.Default)
     this.#grid.setup()
     this.#updateSeedWords()
     this.update()
@@ -93,10 +92,10 @@ export class Game {
       // User has the dictionary enabled
       state.includeProfanityInDictionary ||
       // User has validated profane words, or loaded a share URL with profane words in it
-      this.#grid.getDictionaries().includes(DictionaryNames.Profanity)
+      this.#grid.getSources().includes(Dictionary.Names.Profanity)
     ) {
       // Profane words can be validated, but they won't be used to generate the grid
-      await this.#words.load(Dictionaries.Profanity)
+      await this.#dictionary.load(Dictionary.Sources.Profanity)
     }
   }
 
@@ -105,24 +104,24 @@ export class Game {
     const width = this.#grid.width
     const size = `${width}x${width}`
     const state = this.#state.get()
-    const url = new URL(State.url.toString())
+    const url = getBaseUrl()
     const statistics = this.#grid.getStatistics()
 
     if (state.includeStateInShareUrl) {
-      url.searchParams.set(State.Params.State, this.#grid.getState())
+      Grid.SolutionCache.set(this.#grid.getState())
     } else {
-      url.searchParams.set(State.Params.Id, id)
-      url.searchParams.set(State.Params.Width, width)
+      url.searchParams.set(Grid.Params.Id, id)
+      url.searchParams.set(Grid.Params.Width, width)
     }
 
-    const dictionaries = this.#grid.getDictionaries().join(' + ')
+    const sources = this.#grid.getSources()
     const moves = statistics.moves.map((move) => move === Grid.Moves.Spell ? '🟩' : '🟪').join('')
 
     const content = `Path: #${id} (${size})\n` +
       `Score: ${statistics.score} ` +
       `${statistics.rating.description} ${statistics.rating.emoji} (${statistics.progress}% filled)\n` +
       (moves ? `Moves: ${moves}\n` : '') +
-      (dictionaries ? `Dictionary: ${dictionaries}\n` : '') +
+      (sources.length > 1 ? `Dictionary: ${sources.join(' + ')}\n` : '') +
       `${url.toString()}`
 
     await writeToClipboard(content)
@@ -152,7 +151,7 @@ export class Game {
   }
 
   #onExpand () {
-    this.#state.set(State.Params.Expand, !this.#state.get(State.Params.Expand))
+    this.#state.set(Game.Params.Expand, !this.#state.get(Game.Params.Expand))
     this.#updateDrawer()
   }
 
@@ -164,9 +163,9 @@ export class Game {
     const state = this.#state.get()
     state.includeProfanityInDictionary = event.target.checked
     if (state.includeProfanityInDictionary) {
-      await this.#words.load(Dictionaries.Profanity)
+      await this.#dictionary.load(Dictionary.Sources.Profanity)
     } else {
-      this.#words.unload(Dictionaries.Profanity)
+      this.#dictionary.unload(Dictionary.Sources.Profanity)
     }
     this.#state.set(state)
   }
@@ -184,7 +183,7 @@ export class Game {
   }
 
   #onWidthChange (event) {
-    State.params.set(State.Params.Width, event.target.value)
+    urlParams.set(Grid.Params.Width, event.target.value)
     reload()
   }
 
@@ -220,11 +219,11 @@ export class Game {
     $content.textContent = Grid.getContent(selection)
 
     const children = [$content]
-    if (this.#words.isValid($content.textContent)) {
+    if (this.#dictionary.isValid($content.textContent)) {
       $content.classList.add(Game.ClassNames.Valid)
     } else {
       const content = Grid.getContent(selection.reverse())
-      if (this.#words.isValid(content)) {
+      if (this.#dictionary.isValid(content)) {
         $content.classList.add(Game.ClassNames.Valid)
         $content.textContent = content
       }
@@ -343,5 +342,9 @@ export class Game {
     Swap: 'swap',
     Valid: 'valid',
     Word: 'word'
+  })
+
+  static Params = Object.freeze({
+    Expand: 'expand'
   })
 }

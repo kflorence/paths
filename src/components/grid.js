@@ -4,42 +4,36 @@ import { State } from './state'
 import { EventListeners } from './eventListeners'
 import { Word } from './word'
 import { Flags } from './flag'
-import { getClassName, history, url, urlParams } from './util'
+import { cyrb53, getClassName, history, splitmix32, url, urlParams } from './util'
 import { Cache } from './cache'
+import { Dictionary } from './dictionary'
+import { SelfAvoidingWalk } from './generators/selfAvoidingWalk'
+import { Scramble } from './generators/scramble'
 
 const $grid = document.getElementById('grid')
 
 export class Grid {
-  id
-  size
-  width
+  configuration
+  dictionary
 
   #active
   #cells = []
-  #configuration = []
   #eventListeners = new EventListeners({ context: this, element: $grid })
-  #maxColumn
-  #maxRow
   #pointerIndex = -1
-  #rand
-  #seed
-  #seedWords
   #selection = []
   #selectionStart
   #state
-  #words
 
-  constructor (words) {
-    const initialState = Grid.State.load()
+  constructor (dictionary) {
+    this.configuration = new Grid.Configuration()
+    this.dictionary = dictionary
 
-    this.id = Grid.getId()
-    this.width = Grid.getWidth()
-    this.size = this.width * this.width
-    this.#maxColumn = this.#maxRow = this.width - 1
-    this.#state = new State(this.#seed, state, { ephemeral })
-    this.#words = words
+    const solution = Grid.getSolution(this.configuration.hash)
+    // Don't persist changes locally if a solution is provided in the URL
+    const persistence = solution === undefined
+    this.#state = new State(this.configuration.hash, { solution }, { persistence })
 
-    $grid.dataset.width = this.width
+    $grid.dataset.width = this.configuration.width
 
     this.#eventListeners.add([
       { type: Cell.Events.Select, handler: this.#onSelect },
@@ -47,29 +41,29 @@ export class Grid {
     ])
   }
 
-  getDictionaries () {
-    return Array.from(new Set([DictionaryNames.Default].concat(this.#getState().dictionary))).sort()
-  }
-
   getMoves () {
     return this.#getState().moves
   }
 
   getSeedWords () {
-    return Array.from(this.#seedWords)
+    return Array.from(this.configuration.words)
   }
 
   getSelection () {
     return Array.from(this.#selection)
   }
 
+  getSources () {
+    return Array.from(new Set([Dictionary.Names.Default].concat(this.#getState().dictionary))).sort()
+  }
+
   getState () {
-    return State.encode(JSON.stringify(this.#state.get()))
+    return this.#state.get()
   }
 
   getStatistics (state) {
     state ??= this.#getState()
-    return new Grid.Statistics(state, this.getWords(state), this.size)
+    return new Grid.Statistics(state, this.getWords(state), this.configuration.size)
   }
 
   getSwaps () {
@@ -84,15 +78,6 @@ export class Grid {
   getWords (state) {
     return (state ?? this.#getState())
       .words.map((indexes) => new Word(this.width, indexes.map((index) => this.#cells[index])))
-  }
-
-  isValid (coordinates) {
-    return (
-      coordinates.column >= 0 &&
-      coordinates.column <= this.#maxColumn &&
-      coordinates.row >= 0 &&
-      coordinates.row <= this.#maxRow
-    )
   }
 
   removeSwap (index) {
@@ -149,33 +134,26 @@ export class Grid {
   }
 
   reset () {
-    this.#setState(new Grid.State(this.id, this.width))
+    this.#state.update((state) => {
+      delete state[Grid.State.Keys.Solution]
+      return state
+    })
     this.#update(Grid.getIndexes(this.#cells))
   }
 
   setup () {
-    // TODO: use config from state, if available, otherwise generate.
-
-    this.#seedWords = this.#words.getRandom(this.#rand, this.size)
-    const characters = this.#seedWords.join('').split('')
-
-    const indexes = []
-    for (let index = 0; index < this.size; index++) {
-      indexes.push(index)
-
-      const row = Math.floor(index / this.width)
-      const column = index % this.width
-      const coordinates = new Coordinates(row, column, this.width)
-      const characterIndex = Math.floor(this.#rand() * characters.length)
-      const character = characters.splice(characterIndex, 1)[0]
-      const configuration = new Cell.State(index, character)
-      const cell = new Cell(coordinates, configuration)
-
-      this.#cells.push(cell)
-      this.#configuration.push(configuration)
+    let configuration = this.#state.get(Grid.State.Keys.Configuration)
+    if (!configuration) {
+      // This grid has not been generated yet. Generate it and cache it.
+      const generator = this.configuration.mode === Grid.Modes.Casual
+        ? new SelfAvoidingWalk(this.configuration, this.dictionary)
+        : new Scramble(this.configuration, this.dictionary)
+      configuration = generator.generate()
+      this.#state.set(Grid.State.Keys.Configuration, configuration)
     }
 
-    this.#update(indexes)
+    this.#cells = configuration.cells
+    this.#update(Grid.getIndexes(this.#cells))
 
     $grid.replaceChildren(...this.#cells.map((cell) => cell.getElement()))
     $grid.classList.remove(Grid.ClassNames.Loading)
@@ -445,8 +423,8 @@ export class Grid {
 
   #setState (state) {
     this.#state.set(state)
-    if (urlParams.has(Cache.Keys.Solution)) {
-      Grid.SolutionCache.set(state)
+    if (urlParams.has(Grid.Params.Solution.key)) {
+      Grid.Params.Solution.set(state)
     }
   }
 
@@ -473,7 +451,7 @@ export class Grid {
 
     indexes.forEach((index) => {
       const cell = this.#cells[index]
-      let content = this.#configuration[index].content
+      let content = state.configuration.cells[index].content
       const flags = new Flags()
 
       // Handle swapped cells
@@ -481,7 +459,7 @@ export class Grid {
       if (swap) {
         flags.add(Cell.Flags.Swapped)
         const targetIndex = swap.indexOf(index) === 0 ? swap[1] : swap[0]
-        content = this.#configuration[targetIndex].content
+        content = state.configuration.cells[targetIndex].content
       }
 
       // Handle cells that are part of the path
@@ -571,12 +549,12 @@ export class Grid {
     if (pathIndexes.length) {
       const wordCells = Array.from(this.#selection)
       let content = Grid.getContent(wordCells)
-      if (!this.#words.isValid(content)) {
+      if (!this.dictionary.isValid(content)) {
         // Try the selection in reverse
         content = Grid.getContent(wordCells.reverse())
       }
 
-      if (this.#words.isValid(content)) {
+      if (this.dictionary.isValid(content)) {
         const state = this.#getState()
 
         // Path indexes correspond to the selection as it was anchored to the existing path
@@ -586,7 +564,7 @@ export class Grid {
         state.words.push(Grid.getIndexes(wordCells))
 
         // Add the dictionary used to verify the word
-        state.dictionary.push(this.#words.getDictionary(content))
+        state.dictionary.push(this.dictionary.getSource(content))
 
         // Update moves
         state.moves.push([Grid.Moves.Spell, state.words.length - 1].join(':'))
@@ -610,29 +588,30 @@ export class Grid {
   }
 
   static getId () {
-    const id = urlParams.get(Grid.Params.Id)
+    const id = Grid.Params.Id.get()
     return (id === null || (Grid.DateRegex.test(id) && Date.parse(id) > Grid.Today)) ? Grid.DefaultId : id
   }
 
+  static getMode () {
+    const mode = Grid.Params.Mode.get()
+    return Object.values(Grid.Modes).includes(mode) ? mode : Grid.DefaultMode
+  }
+
+  static getSolution (hash) {
+    const solution = Grid.Params.Solution.get()
+    if (solution?.hash === hash) {
+      return solution
+    }
+  }
+
   static getWidth () {
-    const width = Number(urlParams.get(Grid.Params.Width))
+    const width = Number(Grid.Params.Width.get())
     return Grid.Widths.includes(width) ? width : Grid.DefaultWidth
   }
 
-  static CacheKeys = Object.freeze({
-    Solution: 'solution'
-  })
-
-  static Params = Object.freeze({
-    Debug: 'debug',
-    Expand: 'expand',
-    Id: 'id',
-    Width: 'width'
-  })
-
-  static Moves = Object.freeze({
-    Spell: 'spell',
-    Swap: 'swap'
+  static Modes = Object.freeze({
+    Casual: 'casual',
+    Challenge: 'challenge'
   })
 
   static Name = 'grid'
@@ -646,6 +625,7 @@ export class Grid {
     const day = date.getDate().toString().padStart(2, '0')
     return `${year}-${month}-${day}`
   })()
+  static DefaultMode = Grid.Modes.Casual
 
   static DefaultWidth = 5
   static Events = Object.freeze({
@@ -653,15 +633,26 @@ export class Grid {
     Update: getClassName(Grid.Name, 'update')
   })
 
-  static SolutionCache = new Cache(
-    Cache.Keys.Solution,
-    urlParams.get,
-    (key, value) => {
-      urlParams.set(key, value)
-      history.pushState({ [key]: value }, '', url)
-    },
-    [Cache.Encoders.Base64, Cache.Encoders.Json]
-  )
+  static Moves = Object.freeze({
+    Spell: 'spell',
+    Swap: 'swap'
+  })
+
+  static Params = Object.freeze({
+    Debug: Cache.urlParams('debug'),
+    Id: Cache.urlParams('id'),
+    Mode: Cache.urlParams('mode'),
+    Solution: new Cache(
+      'solution',
+      urlParams.get,
+      (key, value) => {
+        urlParams.set(key, value)
+        history.pushState({ [key]: value }, '', url)
+      },
+      [Cache.Encoders.Base64, Cache.Encoders.Json]
+    ),
+    Width: Cache.urlParams('width')
+  })
 
   static Today = Date.parse(Grid.DefaultId)
   static Widths = Object.freeze([5, 7, 9])
@@ -676,46 +667,26 @@ export class Grid {
     }
   }
 
-  static Generator = class {
-    cells
-    characters
-    difficulty
+  static Configuration = class {
     hash
     id
-    rand
+    maxColumn
+    maxRow
+    mode
+    seed
     size
     width
-    words
-    wordBoundaries = {}
-    wordBoundaryIndexes
 
-    constructor (id, width, difficulty, dictionary) {
-      const size = width * width
+    constructor () {
+      this.id = Grid.getId()
+      this.mode = Grid.getMode()
+      this.width = Grid.getWidth()
+      this.maxColumn = this.maxRow = this.width - 1
+      this.size = this.width * this.width
 
       // Anything that influences the outcome of the grid should be passed in here
-      const seed = [id, width, difficulty].join(',')
-      const hash = Grid.Generator.cyrb53(seed)
-
-      this.cells = new Array(size)
-      this.difficulty = difficulty
-      this.id = id
-      this.rand = Grid.Generator.splitmix32(hash)
-      this.hash = hash
-      this.size = size
-      this.width = width
-      this.words = dictionary.getWords(this.rand, this.size)
-    }
-
-    generate () {
-      this.wordBoundaries = Object.fromEntries(this.words.reduce((entries, word, index) => {
-        const [previousBoundary] = entries[entries.length - 1] ?? [-1]
-        entries.push([previousBoundary + word.length, index])
-        return entries
-      }, []))
-      this.wordBoundaryIndexes = Object.keys(this.wordBoundaries).map(Number).sort((a, b) => a - b)
-      this.characters = this.words.reduce((characters, word) => characters.concat(word.split('')), [])
-
-      return this.cells
+      this.seed = [this.mode, this.width, this.id].join(':')
+      this.hash = cyrb53(this.seed)
     }
 
     getCoordinates (index) {
@@ -734,125 +705,110 @@ export class Grid {
       return Math.floor(index / this.width)
     }
 
-    static Difficulty = Object.freeze({
-      Easy: 1,
-      Medium: 2,
-      Hard: 3
-    })
-
-    static Names = Object.freeze({
-      Default: 'default',
-      Scramble: 'scramble'
-    })
-
-    /**
-     * cyrb53 (c) 2018 bryc (github.com/bryc)
-     * License: Public domain. Attribution appreciated.
-     * A fast and simple 53-bit string hash function with decent collision resistance.
-     * Largely inspired by MurmurHash2/3, but with a focus on speed/simplicity.
-     */
-    static cyrb53 = function (str, seed = 0) {
-      let h1 = 0xdeadbeef ^ seed
-      let h2 = 0x41c6ce57 ^ seed
-      for (let i = 0, ch; i < str.length; i++) {
-        ch = str.charCodeAt(i)
-        h1 = Math.imul(h1 ^ ch, 2654435761)
-        h2 = Math.imul(h2 ^ ch, 1597334677)
-      }
-      h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507)
-      h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909)
-      h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507)
-      h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909)
-      return 4294967296 * (2097151 & h2) + (h1 >>> 0)
-    }
-
-    /**
-     * A seeded pseudo-random number generator.
-     * @see https://github.com/bryc/code/blob/master/jshash/PRNGs.md
-     * @param a the seed value
-     * @returns {function(): *} a function which generates static pseudo-random numbers per seed and call
-     */
-    static splitmix32 (a) {
-      return function () {
-        a |= 0
-        a = a + 0x9e3779b9 | 0
-        let t = a ^ a >>> 16
-        t = Math.imul(t, 0x21f0aaad)
-        t = t ^ t >>> 15
-        t = Math.imul(t, 0x735a2d97)
-        return ((t ^ t >>> 15) >>> 0) / 4294967296
-      }
+    isValid (coordinates) {
+      return (
+        coordinates.column >= 0 &&
+        coordinates.column <= this.maxColumn &&
+        coordinates.row >= 0 &&
+        coordinates.row <= this.maxRow
+      )
     }
   }
 
-  // TODO: create storage for config and metadata. move best into metadata
-  static State = class {
-    best
+  static Generator = class {
+    characters
+    configuration
     dictionary
-    id
-    moves
-    path
-    swaps
-    width
+    rand
+    wordBoundaries
+    wordBoundaryIndexes
     words
 
-    constructor (id, width, path, swaps, words, moves, best, dictionary) {
-      this.best = best ?? 0
-      this.dictionary = dictionary ?? []
-      this.id = id
-      this.width = Grid.Widths.includes(width) ? width : Grid.DefaultWidth
-      this.path = path ?? []
-      this.swaps = swaps ?? []
-      this.words = words ?? []
-      this.moves = moves ?? []
+    constructor (configuration, dictionary) {
+      this.rand = splitmix32(configuration.hash)
+      this.words = dictionary.getWords(this.rand, configuration.size)
+      this.characters = this.words.reduce((characters, word) => characters.concat(word.split('')), [])
+      this.configuration = configuration
+      this.dictionary = dictionary
+      this.wordBoundaries = Grid.Generator.getWordBoundaries(this.configuration.words)
+      this.wordBoundaryIndexes = Object.keys(this.wordBoundaries).map(Number).sort((a, b) => a - b)
     }
 
-    static load () {
-      if (urlParams.has(Grid.CacheKeys.Solution)) {
-        const state = Grid.SolutionCache.get()
-      }
-
-      return new Grid.State()
+    /**
+     * Generate grid state configuration.
+     * @returns {Grid.State.Configuration}
+     */
+    generate () {
+      throw new Error('Use concrete implementation')
     }
 
-    static fromShareUrl (state) {
-      return new Grid.State(
-        state.id,
-        state.width,
-        state.path,
-        state.swaps,
-        state.words,
-        state.moves,
-        state.best,
-        state.dictionary
-      )
+    /**
+     *
+     * @param words
+     * @returns {{[p: string]: any}}
+     */
+    static getWordBoundaries (words) {
+      return Object.fromEntries(words.reduce((entries, word, index) => {
+        const [previousBoundary] = entries[entries.length - 1] ?? [-1]
+        entries.push([previousBoundary + word.length, index])
+        return entries
+      }, []))
+    }
+  }
+
+  static State = class {
+    configuration
+    solution
+    user
+
+    constructor (configuration, solution, user) {
+      this.configuration = configuration
+      this.solution = solution
+      this.user = user
     }
 
+    // TODO consider storing the score of the path
     static Configuration = class {
-      constructor (characters, sources) {
-        // TODO: some generators could output the highest possible score, might want to store that
+      cells
+      words
+
+      constructor (cells, words) {
+        this.cells = cells
+        this.words = words
       }
     }
 
     static Solution = class {
+      hash
       moves
       path
+      sources
       swaps
       words
 
-      constructor (path, moves, swaps, words) {
+      constructor (hash, path, moves, swaps, words, sources) {
+        this.hash = hash
         this.path = path ?? []
         this.moves = moves ?? []
         this.swaps = swaps ?? []
         this.words = words ?? []
+        this.sources = sources ?? []
       }
     }
 
     static User = class {
       highScore
 
-      constructor (highScore) {}
+      constructor (highScore) {
+        this.highScore = highScore
+      }
     }
+
+    static Keys = Object.freeze({
+      Configuration: 'configuration',
+      Solution: 'solution',
+      User: 'user'
+    })
   }
 
   static Rating = class {

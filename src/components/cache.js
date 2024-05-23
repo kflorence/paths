@@ -1,4 +1,4 @@
-import { base64decode, base64encode } from './util'
+import { base64decode, base64encode, localStorage, urlParams } from './util'
 
 export class Cache {
   encoding
@@ -11,6 +11,15 @@ export class Cache {
     this.getter = getter
     this.setter = setter
     this.encoding = encoding
+  }
+
+  copy (settings) {
+    return new Cache(
+      settings.key ?? this.key,
+      settings.getter ?? this.getter,
+      settings.setter ?? this.setter,
+      settings.encoding ?? this.encoding
+    )
   }
 
   decode (value) {
@@ -51,6 +60,14 @@ export class Cache {
 
   set (value) {
     return this.setter(this.key, this.encode(value))
+  }
+
+  static localStorage (key, encoding) {
+    return new Cache(key, localStorage.getItem, localStorage.setItem, encoding)
+  }
+
+  static urlParams (key, encoding) {
+    return new Cache(key, urlParams.get, urlParams.set, encoding)
   }
 
   static Encoders = Object.freeze({

@@ -8,34 +8,37 @@ import { Grid } from '../grid'
  * causing the path to cross.
  */
 export class SelfAvoidingWalk extends Grid.Generator {
+  characters
+  configuration
+  dictionary
+  rand
+  words
+
+  #cells
   #characters
   #invalidStepIndexes
   #steps = []
   #tries = 0
   #restartThreshold
-  #wordBoundaries
-  #wordBoundaryIndexes
 
-  // TODO: difficulty
-  // TODO: hints
-  constructor (words, width, rand) {
-    super(words, width, rand)
-    this.#restartThreshold = this.size * 2
+  // TODO: difficulty?
+  // TODO: hints?
+  constructor (configuration, dictionary) {
+    super(...arguments)
+    this.#restartThreshold = configuration.size * 2
   }
 
   generate () {
-    super.generate()
-
-    while (this.#steps.length < this.size) {
+    while (this.#steps.length < this.configuration.size) {
       this.#step()
     }
 
-    return this.cells
+    return new Grid.State.Configuration(this.#cells, this.words)
   }
 
   #getAvailableCellIndexes () {
     // Return an array of all indexes that don't contain a value
-    return [...this.cells].flatMap((v, i) => (v === undefined ? [i] : []))
+    return [...this.#cells].flatMap((v, i) => (v === undefined ? [i] : []))
   }
 
   #getConnectableIndexes (pool) {
@@ -64,11 +67,11 @@ export class SelfAvoidingWalk extends Grid.Generator {
 
     while (queue.length > 0) {
       const index = dequeue()
-      const coordinates = this.getCoordinates(index)
+      const coordinates = this.configuration.getCoordinates(index)
       const validIndexes = pool.filter((index) => !visited[index])
 
       // Enqueue all valid neighbors
-      this.#getNeighbors(coordinates, validIndexes).forEach((neighbor) => enqueue(this.getIndex(neighbor.coordinates)))
+      this.#getNeighbors(coordinates, validIndexes).forEach((neighbor) => enqueue(this.configuration.getIndex(neighbor.coordinates)))
     }
 
     return connectable.sort((a, b) => a - b)
@@ -87,7 +90,7 @@ export class SelfAvoidingWalk extends Grid.Generator {
 
   #getNeighbors (coordinates, validIndexes) {
     return coordinates.neighbors.filter((neighbor) => {
-      if (!this.isValid(neighbor.coordinates)) {
+      if (!this.configuration.isValid(neighbor.coordinates)) {
         return false
       }
 
@@ -107,12 +110,6 @@ export class SelfAvoidingWalk extends Grid.Generator {
 
       return true
     })
-  }
-
-  #getWordIndex (characterIndex) {
-    return this.#wordBoundaries[
-      this.#wordBoundaryIndexes.find((index) => index >= characterIndex)
-    ]
   }
 
   #step () {
@@ -142,7 +139,7 @@ export class SelfAvoidingWalk extends Grid.Generator {
       ? availableCellIndexes.filter((index) => !invalidStepIndexes[index])
       : availableCellIndexes
 
-    const stepsRemaining = this.size - stepIndex
+    const stepsRemaining = this.configuration.size - stepIndex
     console.debug(`stepsRemaining: ${stepsRemaining}`)
 
     const validNeighbors = this.#getNeighbors(lastStep.coordinates, validStepIndexes)
@@ -167,24 +164,24 @@ export class SelfAvoidingWalk extends Grid.Generator {
 
     // Pick a random neighbor from the list of valid neighbors to step to
     const index = randomIntInclusive(this.rand, validNeighbors.length - 1)
-    this.#addStep(this.getIndex(validNeighbors[index].coordinates))
+    this.#addStep(this.configuration.getIndex(validNeighbors[index].coordinates))
   }
 
   #addStep (index, lastStep) {
-    const coordinates = this.getCoordinates(index)
+    const coordinates = this.configuration.getCoordinates(index)
     const character = this.#characters[this.#steps.length]
     const cell = new Cell(coordinates, new Cell.State(index, character))
 
-    this.cells[index] = cell
+    this.#cells[index] = cell
 
     this.#steps.push(new Step(cell, lastStep))
   }
 
   #removeLastStep () {
-    const lastStep = this.path.pop()
+    const lastStep = this.#steps.pop()
     const index = lastStep.index
 
-    delete this.cells[index]
+    delete this.#cells[index]
 
     // Mark this choice as invalid so we don't try it again
     this.#invalidStepIndexes[lastStep.key][index] = true

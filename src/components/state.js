@@ -6,7 +6,8 @@ export class State {
   #persistence
   #value
 
-  constructor (key, defaultValue, options = { encoding: [], overrides: [], persistence: true }) {
+  constructor (key, defaultValue, options) {
+    options = Object.assign({ encoding: [], overrides: [], persistence: true }, options)
     this.#cache = new Cache(key, localStorage.getItem, localStorage.setItem, options.encoding)
     this.#persistence = options.persistence !== false
     this.#value = structuredClone(defaultValue)
