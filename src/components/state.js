@@ -1,4 +1,3 @@
-import { localStorage } from './util'
 import { Cache } from './cache'
 
 export class State {
@@ -8,7 +7,7 @@ export class State {
 
   constructor (key, defaultValue, options) {
     options = Object.assign({ encoding: [], overrides: [], persistence: true }, options)
-    this.#cache = new Cache(key, localStorage.getItem, localStorage.setItem, options.encoding)
+    this.#cache = Cache.localStorage(key, options.encoding)
     this.#persistence = options.persistence !== false
     this.#value = structuredClone(defaultValue)
 
@@ -65,6 +64,7 @@ export class State {
   }
 
   update (updater) {
-    return this.set(updater(this.get()))
+    const state = this.get()
+    return this.set(updater(state) ?? state)
   }
 }

@@ -27,14 +27,14 @@ const DiagonalDirections = Object.freeze([
 export class Coordinates {
   column
   id
-  neighbors
   row
+
+  #neighbors
 
   constructor (row, column) {
     this.id = [row, column].join(',')
     this.row = Number(row)
     this.column = Number(column)
-    this.neighbors = Coordinates.getNeighbors(this)
   }
 
   add (other) {
@@ -46,16 +46,20 @@ export class Coordinates {
   }
 
   getDirection (other) {
-    return this.neighbors.find((neighbor) => neighbor.coordinates.equals(other))?.direction
+    return this.getNeighbors().find((neighbor) => neighbor.coordinates.equals(other))?.direction
+  }
+
+  getNeighbors () {
+    return (this.#neighbors ??= Coordinates.getNeighbors(this))
   }
 
   getNeighborsCrossing (other) {
     const crossing = Coordinates.Crossings[this.getDirection(other)] ?? []
-    return this.neighbors.filter((neighbor) => crossing.includes(neighbor.direction))
+    return this.getNeighbors().filter((neighbor) => crossing.includes(neighbor.direction))
   }
 
   isNeighbor (other) {
-    return this.neighbors.some((neighbor) => neighbor.coordinates.equals(other))
+    return this.getNeighbors().some((neighbor) => neighbor.coordinates.equals(other))
   }
 
   toString () {

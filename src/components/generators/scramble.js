@@ -1,16 +1,11 @@
 import { Grid } from '../grid'
 import { Cell } from '../cell'
+import { Generator } from '../generator'
 
 /**
  * Picks a random character from the characters array for each cell in the grid.
  */
-export class Scramble extends Grid.Generator {
-  characters
-  configuration
-  dictionary
-  rand
-  words
-
+export class Scramble extends Generator {
   #cells = []
 
   generate () {
@@ -18,13 +13,9 @@ export class Scramble extends Grid.Generator {
 
     const characters = Array.from(this.characters)
     for (let index = 0; index < this.configuration.size; index++) {
-      const coordinates = this.getCoordinates(index)
       const characterIndex = Math.floor(this.rand() * characters.length)
       const [character] = characters.splice(characterIndex, 1)
-      const configuration = new Cell.State(index, character)
-      const cell = new Cell(coordinates, configuration)
-
-      this.#cells.push(cell)
+      this.#cells.push(new Cell.State(index, character))
     }
 
     return new Grid.State.Configuration(this.#cells, this.words)

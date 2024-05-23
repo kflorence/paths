@@ -1,5 +1,6 @@
-import { State } from './state'
+import { Cache } from './cache'
 
+const cache = Cache.urlParams('debug')
 const console = window.console = window.console || { debug: function () {} }
 const consoleDebug = console.debug
 
@@ -8,4 +9,4 @@ export function debug (debug) {
 }
 
 // Silence debug logging by default
-debug(State.params.has(State.Params.Debug) ?? false)
+debug(cache.get() ?? false)

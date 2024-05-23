@@ -63,11 +63,11 @@ export class Cache {
   }
 
   static localStorage (key, encoding) {
-    return new Cache(key, localStorage.getItem, localStorage.setItem, encoding)
+    return new Cache(key, localStorage.getItem.bind(localStorage), localStorage.setItem.bind(localStorage), encoding)
   }
 
   static urlParams (key, encoding) {
-    return new Cache(key, urlParams.get, urlParams.set, encoding)
+    return new Cache(key, urlParams.get.bind(urlParams), urlParams.set.bind(urlParams), encoding)
   }
 
   static Encoders = Object.freeze({

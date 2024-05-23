@@ -1,21 +1,15 @@
 import { Cell } from '../cell'
 import { randomIntInclusive } from '../util'
 import { Grid } from '../grid'
+import { Generator } from '../generator'
 
 /**
  * Picks a random starting location and then performs a self avoiding walk through the grid, generating a valid path
  * by placing the next available character in each cell visited, making sure to visit each cell once and to avoid
  * causing the path to cross.
  */
-export class SelfAvoidingWalk extends Grid.Generator {
-  characters
-  configuration
-  dictionary
-  rand
-  words
-
+export class SelfAvoidingWalk extends Generator {
   #cells
-  #characters
   #invalidStepIndexes
   #steps = []
   #tries = 0
@@ -25,10 +19,12 @@ export class SelfAvoidingWalk extends Grid.Generator {
   // TODO: hints?
   constructor (configuration, dictionary) {
     super(...arguments)
+    this.#cells = new Array(configuration.size)
     this.#restartThreshold = configuration.size * 2
   }
 
   generate () {
+    console.log(this)
     while (this.#steps.length < this.configuration.size) {
       this.#step()
     }
@@ -71,7 +67,8 @@ export class SelfAvoidingWalk extends Grid.Generator {
       const validIndexes = pool.filter((index) => !visited[index])
 
       // Enqueue all valid neighbors
-      this.#getNeighbors(coordinates, validIndexes).forEach((neighbor) => enqueue(this.configuration.getIndex(neighbor.coordinates)))
+      this.#getNeighbors(coordinates, validIndexes)
+        .forEach((neighbor) => enqueue(this.configuration.getIndex(neighbor.coordinates)))
     }
 
     return connectable.sort((a, b) => a - b)
@@ -89,19 +86,20 @@ export class SelfAvoidingWalk extends Grid.Generator {
   }
 
   #getNeighbors (coordinates, validIndexes) {
-    return coordinates.neighbors.filter((neighbor) => {
+    return coordinates.getNeighbors().filter((neighbor) => {
       if (!this.configuration.isValid(neighbor.coordinates)) {
         return false
       }
 
-      if (validIndexes && !validIndexes.includes(neighbor.index)) {
+      const index = this.configuration.getIndex(neighbor.coordinates)
+      if (validIndexes && !validIndexes.includes(index)) {
         return false
       }
 
       if (neighbor.isDirectionDiagonal) {
         const [source, target] = neighbor.coordinates
           .getNeighborsCrossing(coordinates)
-          .map((neighbor) => this.#steps[neighbor.index])
+          .map((neighbor) => this.#steps[this.configuration.getIndex(neighbor.coordinates)])
         if (source?.isConnected(target)) {
           // Eliminate neighbors that cannot be reached due to crossing paths
           return false
@@ -124,15 +122,15 @@ export class SelfAvoidingWalk extends Grid.Generator {
 
     const availableCellIndexes = this.#getAvailableCellIndexes()
     const stepIndex = this.#steps.length - 1
-
     const lastStep = this.#steps[stepIndex]
+
     if (!lastStep) {
       // First step
       const index = randomIntInclusive(this.rand, availableCellIndexes.length - 1)
       this.#addStep(availableCellIndexes[index])
       return
     }
-
+    console.log(lastStep)
     // Filter out any steps we have already determined are invalid
     const invalidStepIndexes = this.#invalidStepIndexes[lastStep.key] ??= {}
     const validStepIndexes = invalidStepIndexes
@@ -144,8 +142,9 @@ export class SelfAvoidingWalk extends Grid.Generator {
 
     const validNeighbors = this.#getNeighbors(lastStep.coordinates, validStepIndexes)
       .filter((neighbor) => {
+        const index = this.configuration.getIndex(neighbor.coordinates)
         // Assess groupability of available indexes assuming this neighbor is picked, and so removed from availability.
-        const groups = this.#getConnectableGroups(availableCellIndexes.filter((index) => index !== neighbor.index))
+        const groups = this.#getConnectableGroups(availableCellIndexes.filter((available) => available !== index))
         if (groups.length > 1) {
           // Picking this neighbor would cause multiple groups.
           return false
@@ -169,12 +168,10 @@ export class SelfAvoidingWalk extends Grid.Generator {
 
   #addStep (index, lastStep) {
     const coordinates = this.configuration.getCoordinates(index)
-    const character = this.#characters[this.#steps.length]
-    const cell = new Cell(coordinates, new Cell.State(index, character))
+    const character = this.characters[this.#steps.length]
 
-    this.#cells[index] = cell
-
-    this.#steps.push(new Step(cell, lastStep))
+    this.#cells[index] = new Cell.State(index, character)
+    this.#steps.push(new Step(index, coordinates, lastStep))
   }
 
   #removeLastStep () {
@@ -199,17 +196,15 @@ export class SelfAvoidingWalk extends Grid.Generator {
 }
 
 class Step {
-  cell
   coordinates
   index
   key
   parent
 
-  constructor (cell, parent) {
-    this.cell = cell
-    this.coordinates = cell.getCoordinates()
-    this.index = cell.getIndex()
-    this.key = [parent.key, this.index].join(',')
+  constructor (index, coordinates, parent) {
+    this.coordinates = coordinates
+    this.index = index
+    this.key = parent ? [parent.key, this.index].join('.') : this.index.toString()
     this.parent = parent
   }
 

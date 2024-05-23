@@ -30,7 +30,7 @@ const confirm = window.confirm
 const crypto = window.crypto
 const tippy = Tippy($share, { content: 'Copied!', theme: 'custom', trigger: 'manual' })
 
-if (urlParams.has(Grid.Params.Solution)) {
+if (urlParams.has(Grid.Params.Solution.key)) {
   document.body.classList.add('share')
 }
 
@@ -41,7 +41,7 @@ export class Game {
   #state
 
   constructor () {
-    const overrides = [new Cache(Game.Params.Expand, urlParams.get, urlParams.set)]
+    const overrides = [Game.Params.Expand]
     this.#state = new State('game', {}, { overrides })
 
     this.#dictionary = new Dictionary()
@@ -87,6 +87,7 @@ export class Game {
     this.#updateSeedWords()
     this.update()
 
+    // TODO make dictionary loading more generic
     const state = this.#state.get()
     if (
       // User has the dictionary enabled
@@ -100,23 +101,26 @@ export class Game {
   }
 
   async share () {
-    const id = this.#grid.id
-    const width = this.#grid.width
+    const { id, mode, width } = this.#grid.getConfiguration()
     const size = `${width}x${width}`
     const state = this.#state.get()
     const url = getBaseUrl()
     const statistics = this.#grid.getStatistics()
 
+    Grid.Params.Id.set(id)
+    Grid.Params.Mode.set(mode)
+    Grid.Params.Width.set(width)
+
     if (state.includeStateInShareUrl) {
-      Grid.SolutionCache.set(this.#grid.getState())
-    } else {
-      url.searchParams.set(Grid.Params.Id, id)
-      url.searchParams.set(Grid.Params.Width, width)
+      Grid.Params.Solution.set(this.#grid.getState().solution)
     }
 
     const sources = this.#grid.getSources()
-    const moves = statistics.moves.map((move) => move === Grid.Moves.Spell ? '🟩' : '🟪').join('')
+    const moves = statistics.moves.map((move) => move === Grid.Moves.Spell ? '🟢' : '🟣').join('')
 
+    // TODO update this for casual vs challenge mode.
+    //  Casual mode should only show % filled and words correct
+    //  Challenge mode should display score and rating along with % filled
     const content = `Path: #${id} (${size})\n` +
       `Score: ${statistics.score} ` +
       `${statistics.rating.description} ${statistics.rating.emoji} (${statistics.progress}% filled)\n` +
@@ -151,7 +155,7 @@ export class Game {
   }
 
   #onExpand () {
-    this.#state.set(Game.Params.Expand, !this.#state.get(Game.Params.Expand))
+    this.#state.set(Game.Params.Expand.key, !this.#state.get(Game.Params.Expand.key))
     this.#updateDrawer()
   }
 
@@ -183,7 +187,7 @@ export class Game {
   }
 
   #onWidthChange (event) {
-    urlParams.set(Grid.Params.Width, event.target.value)
+    Grid.Params.Width.set(event.target.value)
     reload()
   }
 
@@ -197,7 +201,7 @@ export class Game {
   }
 
   #updateSeedWords () {
-    $seedWords.replaceChildren(...this.#grid.getSeedWords().map((word) => {
+    $seedWords.replaceChildren(...this.#grid.getConfiguration().words.map((word) => {
       const $li = document.createElement('li')
       $li.textContent = word
       return $li
@@ -345,6 +349,6 @@ export class Game {
   })
 
   static Params = Object.freeze({
-    Expand: 'expand'
+    Expand: Cache.urlParams('expand')
   })
 }
