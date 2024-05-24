@@ -138,10 +138,7 @@ export class Grid {
   }
 
   reset () {
-    this.#state.update((state) => {
-      delete state[Grid.State.Keys.Solution]
-      return state
-    })
+    this.#state.update((state) => { state.solution = new Grid.State.Solution(this.#configuration.hash) })
     this.#update(Grid.getIndexes(this.#cells))
   }
 
