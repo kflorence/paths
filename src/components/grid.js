@@ -27,11 +27,12 @@ export class Grid {
     this.#configuration = new Grid.Configuration()
     this.#dictionary = dictionary
 
-    const solution = Grid.getSolution(this.#configuration.hash)
-    const user = new Grid.State.User()
+    const sharedSolution = Grid.getSolution(this.#configuration.hash)
 
     // Don't persist changes locally if a solution is provided in the URL
-    const persistence = solution === undefined
+    const persistence = sharedSolution === undefined
+    const solution = sharedSolution ?? new Grid.State.Solution(this.#configuration.hash)
+    const user = new Grid.State.User()
 
     this.#state = new State(this.#configuration.hash, { solution, user }, { persistence })
 
@@ -127,7 +128,7 @@ export class Grid {
 
     this.#setState(state)
 
-    const lastPathCellIndex = state.solution.path[state.path.length - 1]
+    const lastPathCellIndex = state.solution.path[state.solution.path.length - 1]
     if (lastPathCellIndex !== undefined) {
       // Also update the last path item so the link can be removed.
       pathIndexes.push(lastPathCellIndex)
@@ -155,8 +156,8 @@ export class Grid {
       this.#state.set(Grid.State.Keys.Configuration, configuration)
     }
 
-    this.#cells = configuration.cells.map((state) => new Cell(this.#configuration.getCoordinates(state.index), state))
     this.#configuration = this.#configuration.copy(configuration)
+    this.#cells = configuration.cells.map((state) => new Cell(this.#configuration.getCoordinates(state.index), Cell.State.fromObject(state)))
 
     this.#update(Grid.getIndexes(this.#cells))
 
@@ -438,7 +439,7 @@ export class Grid {
     state.solution.swaps.push(swap)
 
     // Update moves
-    state.solution.moves.push([Grid.Moves.Swap, state.swaps.length - 1].join(':'))
+    state.solution.moves.push([Grid.Moves.Swap, state.solution.swaps.length - 1].join(':'))
 
     this.#setState(state)
     this.#update(swap)
@@ -571,7 +572,7 @@ export class Grid {
         state.solution.sources.push(this.#dictionary.getSource(content))
 
         // Update moves
-        state.solution.moves.push([Grid.Moves.Spell, state.words.length - 1].join(':'))
+        state.solution.moves.push([Grid.Moves.Spell, state.solution.words.length - 1].join(':'))
 
         this.#setState(state)
       }
@@ -593,7 +594,7 @@ export class Grid {
 
   static getId () {
     const id = Grid.Params.Id.get()
-    return (id === null || (Grid.DateRegex.test(id) && Date.parse(id) > Grid.Today)) ? Grid.DefaultId : id
+    return (id === undefined || (Grid.DateRegex.test(id) && Date.parse(id) > Grid.Today)) ? Grid.DefaultId : id
   }
 
   static getMode () {
@@ -756,10 +757,12 @@ export class Grid {
     // TODO consider storing the score of the path
     static Configuration = class {
       cells
+      path
       words
 
-      constructor (cells, words) {
+      constructor (cells, words, path) {
         this.cells = cells
+        this.path = path
         this.words = words
       }
     }
@@ -825,17 +828,17 @@ export class Grid {
       )
 
       const score = points + (length === size ? size : 0)
-      const diff = state.best - score
+      const diff = state.user.highScore - score
 
       this.averageWordLength = length === 0 ? 0 : (length / words.length).toPrecision(2)
-      this.best = state.best
+      this.best = state.user.highScore
       this.bestDiff = diff === 0 ? '=' : (diff < 0 ? diff : `+${diff}`)
-      this.moves = state.moves.map((move) => move.split(':')[0])
-      this.progress = Math.trunc((state.path.length / size) * 100)
+      this.moves = state.solution.moves.map((move) => move.split(':')[0])
+      this.progress = Math.trunc((state.solution.path.length / size) * 100)
       this.score = score
       const ratingIndex = Math.min(Grid.Statistics.Ratings.length - 1, Math.floor(this.score / size))
       this.rating = points === 69 ? new Grid.Rating('Heh', '😏') : Grid.Statistics.Ratings[ratingIndex]
-      this.swapCount = state.swaps.length
+      this.swapCount = state.solution.swaps.length
       this.wordCount = words.length
     }
 

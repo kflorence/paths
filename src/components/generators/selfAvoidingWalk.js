@@ -9,9 +9,9 @@ import { Generator } from '../generator'
  * causing the path to cross.
  */
 export class SelfAvoidingWalk extends Generator {
-  #cells
-  #invalidStepIndexes
-  #steps = []
+  #invalidSteps = {}
+  #path = []
+  #steps
   #tries = 0
   #restartThreshold
 
@@ -19,22 +19,25 @@ export class SelfAvoidingWalk extends Generator {
   // TODO: hints?
   constructor (configuration, dictionary) {
     super(...arguments)
-    this.#cells = new Array(configuration.size)
+    this.#steps = new Array(configuration.size)
     this.#restartThreshold = configuration.size * 2
   }
 
   generate () {
-    console.log(this)
-    while (this.#steps.length < this.configuration.size) {
+    while (this.#path.length < this.configuration.size) {
       this.#step()
     }
 
-    return new Grid.State.Configuration(this.#cells, this.words)
+    const path = this.#path.map((step) => step.index)
+    console.debug('Done.', path)
+
+    const cells = this.#steps.map((step) => step.state)
+    return new Grid.State.Configuration(cells, this.words, path)
   }
 
   #getAvailableCellIndexes () {
     // Return an array of all indexes that don't contain a value
-    return [...this.#cells].flatMap((v, i) => (v === undefined ? [i] : []))
+    return [...this.#steps].flatMap((v, i) => (v === undefined ? [i] : []))
   }
 
   #getConnectableIndexes (pool) {
@@ -65,10 +68,11 @@ export class SelfAvoidingWalk extends Generator {
       const index = dequeue()
       const coordinates = this.configuration.getCoordinates(index)
       const validIndexes = pool.filter((index) => !visited[index])
-
-      // Enqueue all valid neighbors
-      this.#getNeighbors(coordinates, validIndexes)
-        .forEach((neighbor) => enqueue(this.configuration.getIndex(neighbor.coordinates)))
+      if (validIndexes.length) {
+        // Enqueue all valid neighbors
+        this.#getNeighbors(coordinates, validIndexes)
+          .forEach((neighbor) => enqueue(this.configuration.getIndex(neighbor.coordinates)))
+      }
     }
 
     return connectable.sort((a, b) => a - b)
@@ -86,6 +90,10 @@ export class SelfAvoidingWalk extends Generator {
   }
 
   #getNeighbors (coordinates, validIndexes) {
+    if (!validIndexes.length) {
+      return []
+    }
+
     return coordinates.getNeighbors().filter((neighbor) => {
       if (!this.configuration.isValid(neighbor.coordinates)) {
         return false
@@ -97,9 +105,14 @@ export class SelfAvoidingWalk extends Generator {
       }
 
       if (neighbor.isDirectionDiagonal) {
+        // console.log('neighbor is directional', neighbor)
         const [source, target] = neighbor.coordinates
           .getNeighborsCrossing(coordinates)
-          .map((neighbor) => this.#steps[this.configuration.getIndex(neighbor.coordinates)])
+          .map((neighbor) => {
+            const index = this.configuration.getIndex(neighbor.coordinates)
+            return this.#steps[index]
+          })
+        // console.log(source, target, source?.isConnected(target))
         if (source?.isConnected(target)) {
           // Eliminate neighbors that cannot be reached due to crossing paths
           return false
@@ -112,17 +125,23 @@ export class SelfAvoidingWalk extends Generator {
 
   #step () {
     this.#tries++
-    console.debug(`Picking next index. Total tries: ${this.#tries}`)
 
-    if (this.#tries % this.#restartThreshold === 0) {
+    const steps = this.#path.length
+    const stepsRemaining = this.configuration.size - steps
+
+    console.debug(`Steps remaining: ${stepsRemaining}. Total tries: ${this.#tries}`)
+
+    if (this.#tries > this.configuration.size * 10) {
+      // Shouldn't happen, but break the loop if it gets stuck for some reason.
+      throw new Error('Too many tries. Stopping.')
+    } else if (this.#tries % this.#restartThreshold === 0) {
       // Sometimes a random path causes too many choices. To speed things up, restart every X number of tries.
       console.debug('Exhausted tries on current path. Starting over.')
       this.#restart()
     }
 
     const availableCellIndexes = this.#getAvailableCellIndexes()
-    const stepIndex = this.#steps.length - 1
-    const lastStep = this.#steps[stepIndex]
+    const lastStep = this.#path[steps - 1]
 
     if (!lastStep) {
       // First step
@@ -130,26 +149,27 @@ export class SelfAvoidingWalk extends Generator {
       this.#addStep(availableCellIndexes[index])
       return
     }
-    console.log(lastStep)
-    // Filter out any steps we have already determined are invalid
-    const invalidStepIndexes = this.#invalidStepIndexes[lastStep.key] ??= {}
-    const validStepIndexes = invalidStepIndexes
-      ? availableCellIndexes.filter((index) => !invalidStepIndexes[index])
-      : availableCellIndexes
 
-    const stepsRemaining = this.configuration.size - stepIndex
-    console.debug(`stepsRemaining: ${stepsRemaining}`)
+    // Filter out any steps we have already determined to be invalid from this point.
+    const validStepIndexes = availableCellIndexes.filter((index) => !this.#invalidSteps[Step.key(lastStep.key, index)])
 
+    // The minimum group size after picking the next step
+    const minGroupSize = stepsRemaining - 1
     const validNeighbors = this.#getNeighbors(lastStep.coordinates, validStepIndexes)
       .filter((neighbor) => {
         const index = this.configuration.getIndex(neighbor.coordinates)
         // Assess groupability of available indexes assuming this neighbor is picked, and so removed from availability.
-        const groups = this.#getConnectableGroups(availableCellIndexes.filter((available) => available !== index))
+        const groupableIndexes = availableCellIndexes.filter((available) => available !== index)
+        const groups = this.#getConnectableGroups(groupableIndexes)
+
+        console.debug('Found groups', groups, 'for neighbor', neighbor, 'with available indexes', groupableIndexes)
+
         if (groups.length > 1) {
-          // Picking this neighbor would cause multiple groups.
+          console.debug('Excluding neighbor: multiple groups', neighbor)
           return false
-        } else if (groups.length === 1 && groups[0].length < stepsRemaining) {
+        } else if (groups.length === 1 && groups[0].length < minGroupSize) {
           // Picking this neighbor would result in a group that is too small for the number of remaining steps.
+          console.debug('Excluding neighbor: group is too small', neighbor)
           return false
         }
 
@@ -157,40 +177,45 @@ export class SelfAvoidingWalk extends Generator {
       })
 
     if (!validNeighbors.length) {
-      // No valid steps from here. Remove the last step and try again.
-      this.#removeLastStep()
+      console.debug('No valid steps from here. Removing last step and trying again.')
+      return this.#removeLastStep()
     }
 
     // Pick a random neighbor from the list of valid neighbors to step to
     const index = randomIntInclusive(this.rand, validNeighbors.length - 1)
-    this.#addStep(this.configuration.getIndex(validNeighbors[index].coordinates))
+    this.#addStep(this.configuration.getIndex(validNeighbors[index].coordinates), lastStep)
   }
 
   #addStep (index, lastStep) {
     const coordinates = this.configuration.getCoordinates(index)
-    const character = this.characters[this.#steps.length]
+    const character = this.characters[this.#path.length]
+    const step = new Step(new Cell.State(index, character), coordinates, lastStep)
 
-    this.#cells[index] = new Cell.State(index, character)
-    this.#steps.push(new Step(index, coordinates, lastStep))
+    this.#steps[index] = step
+    this.#path.push(step)
+
+    console.debug('Added step:', step)
   }
 
   #removeLastStep () {
-    const lastStep = this.#steps.pop()
-    const index = lastStep.index
+    const step = this.#path.pop()
+    const index = step.index
 
-    delete this.#cells[index]
+    delete this.#steps[index]
 
     // Mark this choice as invalid so we don't try it again
-    this.#invalidStepIndexes[lastStep.key][index] = true
+    this.#invalidSteps[step.key] = true
+
+    console.debug('Removed step:', step)
   }
 
   #restart () {
-    while (this.#steps.length > 0) {
+    while (this.#path.length > 0) {
       this.#removeLastStep()
     }
 
-    for (const key in this.#invalidStepIndexes) {
-      this.#invalidStepIndexes[key] = {}
+    for (const key in this.#invalidSteps) {
+      this.#invalidSteps[key] = {}
     }
   }
 }
@@ -200,12 +225,14 @@ class Step {
   index
   key
   parent
+  state
 
-  constructor (index, coordinates, parent) {
+  constructor (state, coordinates, parent) {
     this.coordinates = coordinates
-    this.index = index
-    this.key = parent ? [parent.key, this.index].join('.') : this.index.toString()
+    this.index = state.index
+    this.key = parent ? Step.key(parent.key, this.index) : this.index.toString()
     this.parent = parent
+    this.state = state
   }
 
   equals (other) {
@@ -214,5 +241,9 @@ class Step {
 
   isConnected (other) {
     return (this.parent?.equals(other) || other?.parent?.equals(this)) === true
+  }
+
+  static key (...parts) {
+    return parts.join('.')
   }
 }

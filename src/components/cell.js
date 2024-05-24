@@ -171,5 +171,9 @@ export class Cell {
     getFlags () {
       return this.#flags ?? (this.#flags = new Flags(this.flags))
     }
+
+    static fromObject (obj) {
+      return new Cell.State(obj.index, obj.content, obj.flags)
+    }
   }
 }

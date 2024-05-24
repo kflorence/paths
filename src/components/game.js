@@ -47,9 +47,10 @@ export class Game {
     this.#dictionary = new Dictionary()
     this.#grid = new Grid(this.#dictionary)
 
-    $new.href = `?${Grid.Params.Id}=${crypto.randomUUID().split('-')[0]}`
-    $path.href = `?${Grid.Params.Id}=${this.#grid.id}`
-    $path.textContent = this.#grid.id
+    const configuration = this.#grid.getConfiguration()
+    $new.href = `?${Grid.Params.Id.key}=${crypto.randomUUID().split('-')[0]}`
+    $path.href = `?${Grid.Params.Id.key}=${configuration.id}`
+    $path.textContent = configuration.id
 
     this.#eventListeners.add([
       { type: 'change', element: $includeProfanity, handler: this.#onIncludeProfanityChange },
@@ -101,18 +102,18 @@ export class Game {
   }
 
   async share () {
-    const { id, mode, width } = this.#grid.getConfiguration()
+    const { id, width } = this.#grid.getConfiguration()
     const size = `${width}x${width}`
     const state = this.#state.get()
     const url = getBaseUrl()
     const statistics = this.#grid.getStatistics()
 
-    Grid.Params.Id.set(id)
-    Grid.Params.Mode.set(mode)
-    Grid.Params.Width.set(width)
+    url.searchParams.set(Grid.Params.Id.key, id)
+    // url.searchParams.set(Grid.Params.Mode.key, mode)
+    url.searchParams.set(Grid.Params.Width.key, width)
 
     if (state.includeStateInShareUrl) {
-      Grid.Params.Solution.set(this.#grid.getState().solution)
+      url.searchParams.set(Grid.Params.Solution.key, Grid.Params.Solution.encode(this.#grid.getState().solution))
     }
 
     const sources = this.#grid.getSources()
@@ -234,7 +235,8 @@ export class Game {
     }
 
     if ($content.classList.contains(Game.ClassNames.Valid)) {
-      const word = new Word(this.#grid.width, selection)
+      const configuration = this.#grid.getConfiguration()
+      const word = new Word(configuration.width, selection)
       const $points = document.createElement('span')
       $points.classList.add(Game.ClassNames.Points)
       $points.textContent = word.points

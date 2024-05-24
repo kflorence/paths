@@ -50,7 +50,10 @@ export class Coordinates {
   }
 
   getNeighbors () {
-    return (this.#neighbors ??= Coordinates.getNeighbors(this))
+    if (!this.#neighbors) {
+      this.#neighbors = Coordinates.getNeighbors(this)
+    }
+    return this.#neighbors
   }
 
   getNeighborsCrossing (other) {
@@ -68,7 +71,7 @@ export class Coordinates {
 
   static getNeighbors (coordinates) {
     return Coordinates.Neighbors
-      .map((neighbor) => new Coordinates.Neighbor(neighbor.direction, coordinates.add(neighbor.coordinates)))
+      .map((neighbor) => new Coordinates.Neighbor(coordinates.add(neighbor.coordinates), neighbor.direction))
   }
 
   static Crossings = Object.freeze({
