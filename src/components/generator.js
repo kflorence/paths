@@ -6,7 +6,6 @@ export class Generator {
   dictionary
   rand
   wordBoundaries
-  wordBoundaryIndexes
   words
 
   constructor (configuration, dictionary) {
@@ -15,8 +14,7 @@ export class Generator {
     this.characters = this.words.reduce((characters, word) => characters.concat(word.split('')), [])
     this.configuration = configuration
     this.dictionary = dictionary
-    this.wordBoundaries = Generator.getWordBoundaries(this.configuration.words)
-    this.wordBoundaryIndexes = Object.keys(this.wordBoundaries).map(Number).sort((a, b) => a - b)
+    this.wordBoundaries = Generator.getWordBoundaries(this.words)
   }
 
   /**
@@ -28,19 +26,15 @@ export class Generator {
   }
 
   getWordIndex (characterIndex) {
-    return this.wordBoundaries[this.wordBoundaryIndexes.find((index) => index >= characterIndex)]
+    return this.wordBoundaries.findIndex((boundary) => boundary.includes(characterIndex))
   }
 
-  /**
-   *
-   * @param words
-   * @returns {{[p: string]: any}}
-   */
   static getWordBoundaries (words) {
-    return Object.fromEntries(words.reduce((entries, word, index) => {
-      const [previousBoundary] = entries[entries.length - 1] ?? [-1]
-      entries.push([previousBoundary + word.length, index])
-      return entries
-    }, []))
+    return words.reduce((boundaries, word) => {
+      const last = boundaries[boundaries.length - 1]
+      const lastIndex = last ? last[last.length - 1] + 1 : 0
+      boundaries.push([...word.split('').map((_, index) => lastIndex + index)])
+      return boundaries
+    }, [])
   }
 }

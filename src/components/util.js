@@ -57,6 +57,10 @@ function base64unescape (string) {
     .replace(/-/g, '+').replace(/_/g, '/')
 }
 
+export function optionally (value, func) {
+  return value === undefined ? value : func(value)
+}
+
 export function randomIntInclusive (rand, max, min = 0) {
   return Math.floor(rand() * (max - min + 1) + min)
 }

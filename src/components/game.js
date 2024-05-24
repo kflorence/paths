@@ -16,11 +16,10 @@ const $includeProfanity = document.getElementById('include-profanity')
 const $new = document.getElementById('new')
 const $path = document.getElementById('path')
 const $reset = document.getElementById('reset')
-const $score = document.getElementById('score')
-const $seedWords = document.getElementById('seed-words')
 const $selection = document.getElementById('selection')
 const $share = document.getElementById('share')
 const $statistics = document.getElementById('statistics')
+const $status = document.getElementById('status')
 const $swaps = document.getElementById('swaps')
 const $undo = document.getElementById('undo')
 const $width = document.getElementById('width')
@@ -85,7 +84,6 @@ export class Game {
     // Load the base dictionary, and generate the grid from that
     await this.#dictionary.load(Dictionary.Sources.Default)
     this.#grid.setup()
-    this.#updateSeedWords()
     this.update()
 
     // TODO make dictionary loading more generic
@@ -102,22 +100,28 @@ export class Game {
   }
 
   async share () {
-    const { id, width } = this.#grid.getConfiguration()
+    const { id, mode, width } = this.#grid.getConfiguration()
     const size = `${width}x${width}`
     const state = this.#state.get()
     const url = getBaseUrl()
     const statistics = this.#grid.getStatistics()
 
     url.searchParams.set(Grid.Params.Id.key, id)
-    // url.searchParams.set(Grid.Params.Mode.key, mode)
-    url.searchParams.set(Grid.Params.Width.key, width)
+
+    if (mode !== Grid.Modes.Default) {
+      url.searchParams.set(Grid.Params.Mode.key, mode)
+    }
+
+    if (width !== Grid.DefaultWidth) {
+      url.searchParams.set(Grid.Params.Width.key, width)
+    }
 
     if (state.includeStateInShareUrl) {
       url.searchParams.set(Grid.Params.Solution.key, Grid.Params.Solution.encode(this.#grid.getState().solution))
     }
 
     const sources = this.#grid.getSources()
-    const moves = statistics.moves.map((move) => move === Grid.Moves.Spell ? '🟢' : '🟣').join('')
+    const moves = statistics.moves.map((move) => Game.Moves[move]).join('')
 
     // TODO update this for casual vs challenge mode.
     //  Casual mode should only show % filled and words correct
@@ -201,14 +205,6 @@ export class Game {
     $includeState.checked = state.includeStateInShareUrl
   }
 
-  #updateSeedWords () {
-    $seedWords.replaceChildren(...this.#grid.getConfiguration().words.map((word) => {
-      const $li = document.createElement('li')
-      $li.textContent = word
-      return $li
-    }))
-  }
-
   #updateSelection () {
     this.#updateUndo()
 
@@ -248,7 +244,7 @@ export class Game {
 
   #updateStatistics () {
     const statistics = this.#grid.getStatistics()
-    $score.textContent = statistics.score
+    $status.textContent = statistics.score
     $statistics.replaceChildren(...[
       { name: 'Average Word Length', value: statistics.averageWordLength },
       { name: 'Progress', value: `${statistics.progress}%` },
@@ -348,6 +344,12 @@ export class Game {
     Swap: 'swap',
     Valid: 'valid',
     Word: 'word'
+  })
+
+  static Moves = Object.freeze({
+    [Grid.Moves.Hint]: '💡',
+    [Grid.Moves.Spell]: '🟢',
+    [Grid.Moves.Swap]: '🟣'
   })
 
   static Params = Object.freeze({

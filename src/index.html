@@ -16,7 +16,7 @@
 </head>
 <!-- disable "touch to search" in Chrome -->
 <body tabindex="-1">
-  <dialog id="help-dialog">
+  <dialog id="info-dialog">
     <header>
       <h1 class="flex-left">Paths</h1>
       <form class="flex-right">
@@ -202,7 +202,7 @@
       <div class="flex-right">
         <ul class="menu">
           <li><a class="material-symbols-outlined" id="new" title="New Puzzle">casino</a></li>
-          <li id="help"><span class="material-symbols-outlined" title="Help">help</span></li>
+          <li id="info"><span class="material-symbols-outlined" title="Info">info</span></li>
         </ul>
       </div>
     </header>
@@ -214,13 +214,12 @@
       <div class="container">
         <div class="flex-left">
           <span class="material-symbols-outlined" id="expand" title="More Information">expand_more</span>
-          <div id="status">
-            Score: <span id="score" title="Score">0</span>
-          </div>
+          <div id="status"></div>
         </div>
         <div class="flex-right">
           <ul class="menu">
             <li class="disabled" id="undo"><span class="material-symbols-outlined" title="Undo">undo</span></li>
+            <li class="disabled" id="hint"><span class="material-symbols-outlined" title="Hint">help</span></li>
             <li id="share"><span class="material-symbols-outlined" title="Share">share</span></li>
             <li id="reset"><span class="material-symbols-outlined" title="Reset">device_reset</span></li>
           </ul>
@@ -261,13 +260,6 @@
               </div>
             </li>
           </ul>
-        </div>
-        <div class="section" id="hint">
-          <details>
-            <summary>Hint</summary>
-            <p>The following words were used to generate this grid:</p>
-            <ul id="seed-words"></ul>
-          </details>
         </div>
       </div>
     </footer>

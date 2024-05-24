@@ -32,7 +32,7 @@ export class SelfAvoidingWalk extends Generator {
     console.debug('Done.', path)
 
     const cells = this.#steps.map((step) => step.state)
-    return new Grid.State.Configuration(cells, this.words, path)
+    return new Grid.State.Configuration(cells, this.words, this.#getHints(), path)
   }
 
   #getAvailableCellIndexes () {
@@ -87,6 +87,11 @@ export class SelfAvoidingWalk extends Generator {
     }
 
     return groups
+  }
+
+  #getHints () {
+    // Return the cell index for the first character in each word boundary
+    return this.wordBoundaries.map((boundary) => new Grid.Hint([this.#path[boundary[0]].index]))
   }
 
   #getNeighbors (coordinates, validIndexes) {

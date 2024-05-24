@@ -246,10 +246,6 @@ p.center {
   content: '';
 }
 
-#score {
-  color: #FFED65;
-}
-
 #scoring-examples li {
   margin-bottom: 1em;
 }
@@ -274,10 +270,6 @@ p.center {
   margin-left: 0;
 }
 
-#seed-words {
-  list-style: disc inside;
-}
-
 #selection.selection {
   border-radius: 0 0 16px 16px;
   display: block;
@@ -286,6 +278,7 @@ p.center {
 
 #selection span {
   padding-right: 0.5em;
+  word-break: break-all;
 }
 
 #selection span:last-child {
@@ -307,6 +300,7 @@ p.center {
 }
 
 #status {
+  color: #FFED65;
   font-size: 24px;
   padding: 1em 0;
   text-wrap: nowrap;
@@ -532,6 +526,10 @@ p.center {
   background-color: rgba(0, 0, 0, 0.2);
 }
 
+.grid .cell-hint .background {
+  background-color: #FFED65;
+}
+
 .grid .cell-path::after {
   box-sizing: border-box;
   content: '';
@@ -633,9 +631,9 @@ p.center {
 
 .lds-ellipsis div {
   position: absolute;
-  top: 33.33333px;
-  width: 13.33333px;
-  height: 13.33333px;
+  top: 33px;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
   background: #333;
   animation-timing-function: cubic-bezier(0, 1, 1, 0);

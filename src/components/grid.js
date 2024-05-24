@@ -4,7 +4,7 @@ import { State } from './state'
 import { EventListeners } from './eventListeners'
 import { Word } from './word'
 import { Flags } from './flag'
-import { cyrb53, getClassName, history, url, urlParams } from './util'
+import { cyrb53, getClassName, history, optionally, url, urlParams } from './util'
 import { Cache } from './cache'
 import { Dictionary } from './dictionary'
 import { SelfAvoidingWalk } from './generators/selfAvoidingWalk'
@@ -44,12 +44,19 @@ export class Grid {
     ])
   }
 
-  getMoves () {
-    return this.getState().solution.moves
-  }
-
   getConfiguration () {
     return this.#configuration
+  }
+
+  getHints () {
+    const state = this.getState()
+    const minIndex = state.solution.moves.filter((move) => move.startsWith(Grid.Moves.Hint)).length
+    // Return all un-used hints
+    return state.configuration.hints?.filter((_, index) => index >= minIndex) ?? []
+  }
+
+  getMoves () {
+    return this.getState().solution.moves
   }
 
   getSelection () {
@@ -146,15 +153,15 @@ export class Grid {
     let configuration = this.#state.get(Grid.State.Keys.Configuration)
     if (!configuration) {
       // This grid has not been generated yet. Generate it and cache it.
-      const generator = this.#configuration.mode === Grid.Modes.Casual
+      const generator = this.#configuration.mode === Grid.Modes.Default
         ? new SelfAvoidingWalk(this.#configuration, this.#dictionary)
         : new Scramble(this.#configuration, this.#dictionary)
       configuration = generator.generate()
       this.#state.set(Grid.State.Keys.Configuration, configuration)
     }
 
-    this.#configuration = this.#configuration.copy(configuration)
-    this.#cells = configuration.cells.map((state) => new Cell(this.#configuration.getCoordinates(state.index), Cell.State.fromObject(state)))
+    this.#cells = configuration.cells.map((state) =>
+      new Cell(this.#configuration.getCoordinates(state.index), Cell.State.fromObject(state)))
 
     this.#update(Grid.getIndexes(this.#cells))
 
@@ -596,7 +603,7 @@ export class Grid {
 
   static getMode () {
     const mode = Grid.Params.Mode.get()
-    return Object.values(Grid.Modes).includes(mode) ? mode : Grid.DefaultMode
+    return Object.values(Grid.Modes).includes(mode) ? mode : Grid.Modes.Default
   }
 
   static getSolution (hash) {
@@ -612,7 +619,7 @@ export class Grid {
   }
 
   static Modes = Object.freeze({
-    Casual: 'casual',
+    Default: 'default',
     Challenge: 'challenge'
   })
 
@@ -628,8 +635,6 @@ export class Grid {
     return `${year}-${month}-${day}`
   })()
 
-  static DefaultMode = Grid.Modes.Casual
-
   static DefaultWidth = 5
   static Events = Object.freeze({
     Selection: getClassName(Grid.Name, 'selection'),
@@ -637,6 +642,7 @@ export class Grid {
   })
 
   static Moves = Object.freeze({
+    Hint: 'hint',
     Spell: 'spell',
     Swap: 'swap'
   })
@@ -670,7 +676,6 @@ export class Grid {
   }
 
   static Configuration = class {
-    cells
     hash
     id
     maxColumn
@@ -679,9 +684,8 @@ export class Grid {
     seed
     size
     width
-    words
 
-    constructor (id, mode, width, hash, cells, words) {
+    constructor (id, mode, width, hash) {
       this.id = id ?? Grid.getId()
       this.mode = mode ?? Grid.getMode()
       this.width = width ?? Grid.getWidth()
@@ -691,23 +695,6 @@ export class Grid {
       // Anything that influences the outcome of the grid should be passed in here
       this.seed = [this.mode, this.width, this.id].join(':')
       this.hash = hash ?? cyrb53(this.seed)
-      this.cells = cells ?? []
-      this.words = words ?? []
-    }
-
-    copy (settings) {
-      return new Grid.Configuration(
-        settings.id ?? this.id,
-        settings.mode ?? this.mode,
-        settings.width ?? this.width,
-        settings.hash ?? this.hash,
-        settings.cells ?? this.cells,
-        settings.words ?? this.words
-      )
-    }
-
-    get (index) {
-      return this.cells[index]
     }
 
     getCoordinates (index) {
@@ -736,6 +723,18 @@ export class Grid {
     }
   }
 
+  static Hint = class {
+    indexes
+
+    constructor (indexes) {
+      this.indexes = indexes
+    }
+
+    static fromObject (obj) {
+      return new Grid.Hint(obj.indexes)
+    }
+  }
+
   static State = class {
     configuration
     solution
@@ -748,19 +747,33 @@ export class Grid {
     }
 
     static fromObject (obj) {
-      return new Grid.State(obj.configuration, obj.solution, obj.user)
+      return new Grid.State(
+        optionally(obj.configuration, Grid.State.Configuration.fromObject),
+        optionally(obj.solution, Grid.State.Solution.fromObject),
+        optionally(obj.user, Grid.State.User.fromObject)
+      )
     }
 
-    // TODO consider storing the score of the path
     static Configuration = class {
       cells
+      hints
       path
       words
 
-      constructor (cells, words, path) {
+      constructor (cells, words, hints, path) {
         this.cells = cells
+        this.hints = hints ?? []
         this.path = path
         this.words = words
+      }
+
+      static fromObject (obj) {
+        return new Grid.State.Configuration(
+          obj.cells,
+          obj.words,
+          optionally(obj.hints, (hints) => hints.map(Grid.Hint.fromObject)),
+          obj.path
+        )
       }
     }
 
@@ -780,6 +793,10 @@ export class Grid {
         this.words = words ?? []
         this.sources = sources ?? []
       }
+
+      static fromObject (obj) {
+        return new Grid.State.Solution(obj.hash, obj.path, obj.moves, obj.swaps, obj.words, obj.sources)
+      }
     }
 
     static User = class {
@@ -787,6 +804,10 @@ export class Grid {
 
       constructor (highScore) {
         this.highScore = highScore ?? 0
+      }
+
+      static fromObject (obj) {
+        return new Grid.State.User(obj.highScore)
       }
     }
 
