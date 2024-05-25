@@ -11,6 +11,7 @@ import { Word } from './word'
 
 const $expand = document.getElementById('expand')
 const $footer = document.getElementById('footer')
+const $hint = document.getElementById('hint')
 const $includeState = document.getElementById('include-state')
 const $includeProfanity = document.getElementById('include-profanity')
 const $new = document.getElementById('new')
@@ -56,6 +57,7 @@ export class Game {
       { type: 'change', element: $includeState, handler: this.#onIncludeStateChange },
       { type: 'change', element: $width, handler: this.#onWidthChange },
       { type: 'click', element: $expand, handler: this.#onExpand },
+      { type: 'click', element: $hint, handler: this.#onHint },
       { type: 'click', element: $reset, handler: this.reset },
       { type: 'click', element: $share, handler: this.share },
       { type: 'click', element: $swaps, handler: this.#deleteSwap },
@@ -139,6 +141,7 @@ export class Game {
   }
 
   update () {
+    this.#updateHint()
     this.#updateStatistics()
     this.#updateSwaps()
     this.#updateUndo()
@@ -166,6 +169,11 @@ export class Game {
 
   #onGridUpdate () {
     this.update()
+  }
+
+  #onHint () {
+    this.#grid.hint()
+    this.#updateHint()
   }
 
   async #onIncludeProfanityChange (event) {
@@ -203,6 +211,10 @@ export class Game {
     $expand.textContent = expanded ? 'expand_less' : 'expand_more'
     $includeProfanity.checked = state.includeProfanityInDictionary
     $includeState.checked = state.includeStateInShareUrl
+  }
+
+  #updateHint () {
+    $hint.classList.toggle(Game.ClassNames.Disabled, !this.#grid.hasHint())
   }
 
   #updateSelection () {
@@ -270,7 +282,7 @@ export class Game {
   }
 
   #updateUndo () {
-    const moves = this.#grid.getMoves()
+    const moves = this.#grid.getMoves().filter((move) => !move.startsWith(Grid.Moves.Hint))
     const selection = this.#grid.getSelection()
     const disabled = moves.length === 0 && selection.length === 0
     $undo.classList.toggle(Game.ClassNames.Disabled, disabled)

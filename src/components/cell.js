@@ -131,6 +131,7 @@ export class Cell {
     DirectionSouthWest: new Flag(Directions.SouthWest),
     DirectionWest: new Flag(Directions.West),
     First: new Flag('first'),
+    Hint: new Flag('hint'),
     Last: new Flag('last'),
     Path: new Flag('path'),
     Selected: new Flag('selected'),
@@ -143,7 +144,7 @@ export class Cell {
 
   static FlagsByName = Object.fromEntries(Object.values(Cell.Flags).map((flag) => [flag.name, flag]))
 
-  static StickyFlags = Object.freeze([Cell.Flags.Swapped])
+  static StickyFlags = Object.freeze([Cell.Flags.Hint, Cell.Flags.Swapped])
 
   static Name = 'cell'
 

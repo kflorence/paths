@@ -18,6 +18,7 @@ export class Grid {
   #configuration
   #dictionary
   #eventListeners = new EventListeners({ context: this, element: $grid })
+  #hints = []
   #pointerIndex = -1
   #selection = []
   #selectionStart
@@ -28,7 +29,7 @@ export class Grid {
     this.#dictionary = dictionary
 
     const sharedSolution = Grid.getSolution(this.#configuration.hash)
-
+    console.log('sharedSolution', sharedSolution)
     // Don't persist changes locally if a solution is provided in the URL
     const persistence = sharedSolution === undefined
     const solution = sharedSolution ?? new Grid.State.Solution(this.#configuration.hash)
@@ -46,13 +47,6 @@ export class Grid {
 
   getConfiguration () {
     return this.#configuration
-  }
-
-  getHints () {
-    const state = this.getState()
-    const minIndex = state.solution.moves.filter((move) => move.startsWith(Grid.Moves.Hint)).length
-    // Return all un-used hints
-    return state.configuration.hints?.filter((_, index) => index >= minIndex) ?? []
   }
 
   getMoves () {
@@ -89,6 +83,25 @@ export class Grid {
   getWords (state) {
     return (state ?? this.getState())
       .solution.words.map((indexes) => new Word(this.#configuration.width, indexes.map((index) => this.#cells[index])))
+  }
+
+  hasHint (state) {
+    return this.#hints[this.#getNextHintIndex(state)] !== undefined
+  }
+
+  hint () {
+    const state = this.getState()
+    const index = this.#getNextHintIndex(state)
+    const hint = this.#hints[index]
+    if (!hint) {
+      return
+    }
+
+    state.solution.hints.push(...hint.indexes)
+    state.solution.moves.push([Grid.Moves.Hint, index].join(':'))
+
+    this.#setState(state)
+    this.#update(hint.indexes)
   }
 
   removeSwap (index) {
@@ -162,6 +175,7 @@ export class Grid {
 
     this.#cells = configuration.cells.map((state) =>
       new Cell(this.#configuration.getCoordinates(state.index), Cell.State.fromObject(state)))
+    this.#hints = configuration.hints
 
     this.#update(Grid.getIndexes(this.#cells))
 
@@ -177,7 +191,7 @@ export class Grid {
     }
 
     const state = this.getState()
-    const moves = state.solution.moves
+    const moves = state.solution.moves.filter((move) => !move.startsWith(Grid.Moves.Hint))
     if (moves.length === 0) {
       // If there are no moves, nothing to do.
       return
@@ -231,6 +245,10 @@ export class Grid {
     const event = new CustomEvent(name, { detail })
     // Ensure event is emitted after any currently processing events have been handled
     setTimeout(() => document.dispatchEvent(event))
+  }
+
+  #getNextHintIndex (state) {
+    return (state ?? this.getState()).solution.moves.filter((move) => move.startsWith(Grid.Moves.Hint)).length
   }
 
   #getLastPathCell () {
@@ -433,7 +451,7 @@ export class Grid {
     this.#state.set(state)
     if (urlParams.has(Grid.Params.Solution.key)) {
       // Update solution URL parameter if present
-      Grid.Params.Solution.set(state)
+      Grid.Params.Solution.set(state.solution)
     }
   }
 
@@ -457,15 +475,22 @@ export class Grid {
   #update (indexes) {
     const state = this.getState()
     const cells = state.configuration.cells
+    const hints = state.solution.hints
     const path = state.solution.path
-    const lastPathIndex = path.length - 1
     const swaps = state.solution.swaps
     const words = state.solution.words
+
+    const lastPathIndex = path.length - 1
 
     indexes.forEach((index) => {
       const cell = this.#cells[index]
       let content = cells[index].content
       const flags = new Flags()
+
+      // Handle hints
+      if (hints.includes(index)) {
+        flags.add(Cell.Flags.Hint)
+      }
 
       // Handle swapped cells
       const swap = swaps.find((indexes) => indexes.includes(index))
@@ -608,6 +633,7 @@ export class Grid {
 
   static getSolution (hash) {
     const solution = Grid.Params.Solution.get()
+    console.log(solution, solution?.hash, hash)
     if (solution?.hash === hash) {
       return solution
     }
@@ -779,14 +805,16 @@ export class Grid {
 
     static Solution = class {
       hash
+      hints
       moves
       path
       sources
       swaps
       words
 
-      constructor (hash, path, moves, swaps, words, sources) {
+      constructor (hash, path, moves, hints, swaps, words, sources) {
         this.hash = hash
+        this.hints = hints ?? []
         this.path = path ?? []
         this.moves = moves ?? []
         this.swaps = swaps ?? []
@@ -795,7 +823,7 @@ export class Grid {
       }
 
       static fromObject (obj) {
-        return new Grid.State.Solution(obj.hash, obj.path, obj.moves, obj.swaps, obj.words, obj.sources)
+        return new Grid.State.Solution(obj.hash, obj.path, obj.moves, obj.hints, obj.swaps, obj.words, obj.sources)
       }
     }
 

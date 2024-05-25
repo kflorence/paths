@@ -516,18 +516,11 @@ p.center {
   justify-content: center;
   text-transform: uppercase;
   width: 80%;
+  z-index: 2;
 }
 
-.grid .cell-active .content {
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-.grid .cell-first .content {
-  background-color: rgba(0, 0, 0, 0.2);
-}
-
-.grid .cell-hint .background {
-  background-color: #FFED65;
+.grid .cell-active .background {
+  background-color: color-mix(in oklab, #9da19c 90%, #000);
 }
 
 .grid .cell-path::after {
@@ -540,7 +533,7 @@ p.center {
   position: absolute;
   transform-origin: left center;
   width: 150%;
-  z-index: -1;
+  z-index: 1;
 }
 
 .grid .cell-path.cell-direction-east::after {
@@ -587,29 +580,45 @@ p.center {
   transform: rotate(-180deg);
 }
 
+.grid .cell-validated::after,
+.grid .cell-validated .content {
+  background-color: #59FFA0;
+}
+
+.grid .cell-hint .background {
+  background-color: #FFED65;
+}
+
+.grid .cell-active.cell-hint .background {
+  background-color: color-mix(in oklab, #FFED65 90%, #000);
+}
+
 .grid .cell-selected::after,
-.grid .cell-selected .background {
+.grid .cell-selected .content {
   background-color: #FDFFF7;
 }
 
 .grid .cell-swap .background,
-.grid .cell-swapped .background,
-.grid .cell-swapped.cell-validated .background {
+.grid .cell-swap .content,
+.grid .cell-swapped .background {
   background-color: #B4ADEA;
 }
 
-.grid .cell-swapped.cell-selected .background {
-  background-color: color-mix(in oklab, #B4ADEA 75%, #FDFFF7);
+.grid .cell-active.cell-swapped .background {
+  background-color: color-mix(in oklab, #B4ADEA 90%, #000);
 }
 
-.grid .cell-validated::after,
-.grid .cell-validated .background {
-  background-color: #59FFA0;
-}
+/*.grid .cell-validated.cell-hint .background {*/
+/*  background-color: #FFED65;*/
+/*}*/
+
+/*.grid .cell-validated.cell-swapped .background {*/
+/*  background-color: #B4ADEA;*/
+/*}*/
 
 .grid .cell-path.cell-word-end::after {
-  background-color: black;
-  opacity: 0.25;
+  background-color: #929791;
+  z-index: -1;
 }
 
 .grid-loading .lds-ellipsis {
