@@ -16,7 +16,7 @@ export class Dictionary {
       // Always use cached copy if it exists
       const response = await fetch(source.url, { cache: 'force-cache' })
       const text = await response.text()
-      const startIndex = this.words.length - 1
+      const startIndex = this.words.length
       this.words = Array.from(
         new Set(this.words.concat(text.split('\n').filter((word) => word.length >= Word.minimumLength)))
       )
@@ -94,13 +94,14 @@ export class Dictionary {
     return word.length >= Word.minimumLength && this.words.includes(word)
   }
 
-  unload (source) {
-    if (!source.range) {
-      console.warn(`Dictionary '${source.name}' has not been loaded.`)
+  unload (name) {
+    const source = this.sources[name]
+    if (!source) {
+      console.warn(`Dictionary '${name}' has not been loaded.`)
       return
     }
 
-    console.debug(`Unloading dictionary '${source.name}'. Current length: ${this.words.length}`)
+    console.debug(`Unloading dictionary '${source.name}'. Current word count: ${this.words.length}`)
     source.range.extract(this.words)
     delete this.sources[source.name]
 
@@ -115,7 +116,7 @@ export class Dictionary {
       }
     }
 
-    console.debug(`Done unloading. New length: ${this.words.length}`)
+    console.debug(`Words unloaded. New word count: ${this.words.length}`)
   }
 
   static Range = class {

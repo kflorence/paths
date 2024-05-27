@@ -209,6 +209,7 @@ p.center {
   cursor: pointer;
   font-family: 'Noto Sons Mono', monospace;
   font-size: 1em;
+  text-align: center;
 }
 
 #container input {
@@ -277,12 +278,12 @@ p.center {
 }
 
 #selection span {
-  padding-right: 0.5em;
+  padding-left: 0.5em;
   word-break: break-all;
 }
 
-#selection span:last-child {
-  padding-right: 0;
+#selection span:first-child {
+  padding-left: 0;
 }
 
 #selection:empty::before {
@@ -306,6 +307,11 @@ p.center {
   text-wrap: nowrap;
 }
 
+#status::before {
+  color: white;
+  margin-right: 0.5em;
+}
+
 #swaps .swap {
   text-wrap: nowrap;
 }
@@ -317,7 +323,7 @@ p.center {
 }
 
 #words .word {
-  margin-right: 0.5em;
+  margin: 0 0.5em;
   text-transform: uppercase;
 }
 
@@ -395,10 +401,10 @@ p.center {
 }
 
 .drawer .section {
-  margin-top: 1em;
+  margin-bottom: 1em;
 }
 
-.drawer .section:first-child {
+.drawer .section:last-child {
   margin: 0;
 }
 
@@ -585,7 +591,9 @@ p.center {
   background-color: #59FFA0;
 }
 
-.grid .cell-hint .background {
+.grid .cell-hint .background,
+.grid-mode-challenge .grid .cell-revealed::after,
+.grid-mode-challenge .grid .cell-revealed .content {
   background-color: #FFED65;
 }
 
@@ -608,14 +616,6 @@ p.center {
   background-color: color-mix(in oklab, #B4ADEA 90%, #000);
 }
 
-/*.grid .cell-validated.cell-hint .background {*/
-/*  background-color: #FFED65;*/
-/*}*/
-
-/*.grid .cell-validated.cell-swapped .background {*/
-/*  background-color: #B4ADEA;*/
-/*}*/
-
 .grid .cell-path.cell-word-end::after {
   background-color: #929791;
   z-index: -1;
@@ -623,6 +623,23 @@ p.center {
 
 .grid-loading .lds-ellipsis {
   display: inline-block;
+}
+
+.grid-mode-challenge #status::before {
+  content: 'Score:';
+}
+
+.grid-mode-challenge #hint,
+.grid-mode-default .points,
+.grid-mode-default #reset,
+.grid-mode-default #statistics,
+.grid-mode-default #swaps,
+.grid-mode-default #undo {
+  display: none;
+}
+
+.grid-mode-default #status::before {
+  content: 'Words:';
 }
 
 /* https://loading.io/css/ */
@@ -743,7 +760,9 @@ p.center {
   text-decoration: none;
 }
 
-.points {
+.points,
+.reveal,
+.valid.reveal {
   color: #FFED65;
 }
 

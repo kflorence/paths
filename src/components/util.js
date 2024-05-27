@@ -57,6 +57,14 @@ function base64unescape (string) {
     .replace(/-/g, '+').replace(/_/g, '/')
 }
 
+export function arrayEquals (a, b) {
+  return a.length === b.length && a.every((value, index) => b[index] === value)
+}
+
+export function arrayIncludes (a, b) {
+  return a.some((v) => arrayEquals(v, b))
+}
+
 export function optionally (value, func) {
   return value === undefined ? value : func(value)
 }

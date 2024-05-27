@@ -134,6 +134,7 @@ export class Cell {
     Hint: new Flag('hint'),
     Last: new Flag('last'),
     Path: new Flag('path'),
+    Revealed: new Flag('revealed'),
     Selected: new Flag('selected'),
     Swap: new Flag('swap'),
     Swapped: new Flag('swapped'),

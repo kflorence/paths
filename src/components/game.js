@@ -14,17 +14,18 @@ const $footer = document.getElementById('footer')
 const $hint = document.getElementById('hint')
 const $includeState = document.getElementById('include-state')
 const $includeProfanity = document.getElementById('include-profanity')
+const $mode = document.getElementById('mode')
 const $new = document.getElementById('new')
 const $path = document.getElementById('path')
 const $reset = document.getElementById('reset')
 const $selection = document.getElementById('selection')
 const $share = document.getElementById('share')
-const $statistics = document.getElementById('statistics')
+const $statistics = document.querySelector('#statistics > ul')
 const $status = document.getElementById('status')
-const $swaps = document.getElementById('swaps')
+const $swaps = document.querySelector('#swaps > ul')
 const $undo = document.getElementById('undo')
 const $width = document.getElementById('width')
-const $words = document.getElementById('words')
+const $words = document.querySelector('#words > ul')
 
 const confirm = window.confirm
 const crypto = window.crypto
@@ -35,6 +36,7 @@ if (urlParams.has(Grid.Params.Solution.key)) {
 }
 
 export class Game {
+  #configuration
   #dictionary
   #eventListeners = new EventListeners({ context: this })
   #grid
@@ -46,15 +48,16 @@ export class Game {
 
     this.#dictionary = new Dictionary()
     this.#grid = new Grid(this.#dictionary)
+    this.#configuration = this.#grid.getConfiguration()
 
-    const configuration = this.#grid.getConfiguration()
     $new.href = `?${Grid.Params.Id.key}=${crypto.randomUUID().split('-')[0]}`
-    $path.href = `?${Grid.Params.Id.key}=${configuration.id}`
-    $path.textContent = configuration.id
+    $path.href = `?${Grid.Params.Id.key}=${this.#configuration.id}`
+    $path.textContent = this.#configuration.id
 
     this.#eventListeners.add([
       { type: 'change', element: $includeProfanity, handler: this.#onIncludeProfanityChange },
       { type: 'change', element: $includeState, handler: this.#onIncludeStateChange },
+      { type: 'change', element: $mode, handler: this.#onModeChange },
       { type: 'change', element: $width, handler: this.#onWidthChange },
       { type: 'click', element: $expand, handler: this.#onExpand },
       { type: 'click', element: $hint, handler: this.#onHint },
@@ -68,6 +71,7 @@ export class Game {
     ])
 
     this.#updateDrawer()
+    this.#updateModeSelector()
     this.#updateWidthSelector()
   }
 
@@ -102,7 +106,7 @@ export class Game {
   }
 
   async share () {
-    const { id, mode, width } = this.#grid.getConfiguration()
+    const { id, mode, width } = this.#configuration
     const size = `${width}x${width}`
     const state = this.#state.get()
     const url = getBaseUrl()
@@ -122,27 +126,38 @@ export class Game {
       url.searchParams.set(Grid.Params.Solution.key, Grid.Params.Solution.encode(this.#grid.getState().solution))
     }
 
+    const content = [`Path#${id} | ${size} | ${statistics.secretWordsGuessed}/${statistics.secretWordCount}`]
+
+    if (mode === Grid.Modes.Challenge) {
+      content.push(`Score: ${statistics.score} / ${statistics.progress}%`)
+    }
+
+    let moves = ''
+    const lastMovesIndex = statistics.moves.length - 1
+    statistics.moves.forEach((move, index) => {
+      moves += move
+      if (index !== lastMovesIndex && (index + 1) % width === 0) {
+        moves += '\n'
+      }
+    })
+
+    content.push(moves)
+
     const sources = this.#grid.getSources()
-    const moves = statistics.moves.map((move) => Game.Moves[move]).join('')
+    if (sources.length > 1) {
+      content.push(`Dictionary: ${sources.join(' + ')}`)
+    }
 
-    // TODO update this for casual vs challenge mode.
-    //  Casual mode should only show % filled and words correct
-    //  Challenge mode should display score and rating along with % filled
-    const content = `Path: #${id} (${size})\n` +
-      `Score: ${statistics.score} ` +
-      `${statistics.rating.description} ${statistics.rating.emoji} (${statistics.progress}% filled)\n` +
-      (moves ? `Moves: ${moves}\n` : '') +
-      (sources.length > 1 ? `Dictionary: ${sources.join(' + ')}\n` : '') +
-      `${url.toString()}`
-
-    await writeToClipboard(content)
+    content.push(url.toString())
+    console.log(content)
+    await writeToClipboard(content.join('\n'))
     tippy.show()
     setTimeout(() => tippy.hide(), 1000)
   }
 
   update () {
     this.#updateHint()
-    this.#updateStatistics()
+    this.#updateStatus()
     this.#updateSwaps()
     this.#updateUndo()
     this.#updateWords()
@@ -182,7 +197,7 @@ export class Game {
     if (state.includeProfanityInDictionary) {
       await this.#dictionary.load(Dictionary.Sources.Profanity)
     } else {
-      this.#dictionary.unload(Dictionary.Sources.Profanity)
+      this.#dictionary.unload(Dictionary.Names.Profanity)
     }
     this.#state.set(state)
   }
@@ -197,6 +212,11 @@ export class Game {
     if (!$undo.classList.contains(Game.ClassNames.Disabled)) {
       this.#grid.undo()
     }
+  }
+
+  #onModeChange (event) {
+    Grid.Params.Mode.set(event.target.value)
+    reload()
   }
 
   #onWidthChange (event) {
@@ -228,21 +248,23 @@ export class Game {
       return
     }
 
-    const $content = document.createElement('span')
-    $content.textContent = Grid.getContent(selection)
-
-    const children = [$content]
-    if (this.#dictionary.isValid($content.textContent)) {
-      $content.classList.add(Game.ClassNames.Valid)
-    } else {
-      const content = Grid.getContent(selection.reverse())
-      if (this.#dictionary.isValid(content)) {
-        $content.classList.add(Game.ClassNames.Valid)
-        $content.textContent = content
+    let content = Grid.getContent(selection)
+    let isValid = this.#dictionary.isValid(content)
+    if (!isValid) {
+      const contentReversed = Grid.getContent(selection.reverse())
+      isValid = this.#dictionary.isValid(content)
+      if (isValid) {
+        content = contentReversed
       }
     }
 
-    if ($content.classList.contains(Game.ClassNames.Valid)) {
+    const $content = document.createElement('span')
+    $content.textContent = content
+    $content.classList.toggle(Game.ClassNames.Valid, isValid)
+    $content.classList.toggle(Game.ClassNames.Reveal, this.#grid.isSecretWord(content))
+
+    const children = [$content]
+    if (isValid && this.#configuration.mode === Grid.Modes.Challenge) {
       const configuration = this.#grid.getConfiguration()
       const word = new Word(configuration.width, selection)
       const $points = document.createElement('span')
@@ -254,21 +276,26 @@ export class Game {
     $selection.replaceChildren(...children)
   }
 
-  #updateStatistics () {
+  #updateStatus () {
     const statistics = this.#grid.getStatistics()
-    $status.textContent = statistics.score
-    $statistics.replaceChildren(...[
-      { name: 'Average Word Length', value: statistics.averageWordLength },
-      { name: 'Progress', value: `${statistics.progress}%` },
-      { name: 'Rating', value: `${statistics.rating.description} ${statistics.rating.emoji}` },
-      { name: 'Your Best Score', value: `${statistics.best} (${statistics.bestDiff})` }
-    ].map((item) => {
-      const $content = document.createElement('span')
-      $content.textContent = item.name
-      const $value = document.createElement('span')
-      $value.textContent = item.value
-      return Game.getListItem($content, $value)
-    }))
+    const secretWords = `${statistics.secretWordsGuessed}/${statistics.secretWordCount}`
+    if (this.#configuration.mode === Grid.Modes.Challenge) {
+      $status.textContent = statistics.score
+      $statistics.replaceChildren(...[
+        { name: 'Progress', value: `${statistics.progress}%` },
+        { name: 'Average Word Length', value: statistics.averageWordLength },
+        { name: 'Secret Words Found', value: secretWords },
+        { name: 'Your Best Score', value: `${statistics.best} (${statistics.bestDiff})` }
+      ].map((item) => {
+        const $content = document.createElement('span')
+        $content.textContent = item.name
+        const $value = document.createElement('span')
+        $value.textContent = item.value
+        return Game.getListItem($content, $value)
+      }))
+    } else {
+      $status.textContent = secretWords
+    }
   }
 
   #updateSwaps () {
@@ -288,12 +315,25 @@ export class Game {
     $undo.classList.toggle(Game.ClassNames.Disabled, disabled)
   }
 
+  #updateModeSelector () {
+    $mode.replaceChildren(...Object.entries(Grid.Modes).map(([key, value]) => {
+      const $option = document.createElement('option')
+      $option.textContent = key
+      $option.value = value
+      if (value === this.#configuration.mode) {
+        $option.selected = true
+      }
+      return $option
+    }))
+  }
+
   #updateWidthSelector () {
+    const configuration = this.#grid.getConfiguration()
     $width.replaceChildren(...Grid.Widths.map((width) => {
       const $option = document.createElement('option')
       $option.textContent = `${width}x${width}`
       $option.value = width.toString()
-      if (width === this.#grid.width) {
+      if (width === configuration.width) {
         $option.selected = true
       }
       return $option
@@ -302,15 +342,19 @@ export class Game {
 
   #updateWords () {
     const words = this.#grid.getWords()
-
     $words.replaceChildren(...words.map((word, index) => {
+      const $index = document.createElement('span')
+      $index.textContent = `${index + 1}.`
       const $word = document.createElement('span')
       $word.classList.add(Game.ClassNames.Word)
-      $word.textContent = `${index + 1}. ${word.content}`
+      $word.classList.toggle(Game.ClassNames.Reveal, this.#grid.isSecretWord(word.content))
+      $word.textContent = word.content
       const $points = document.createElement('span')
       $points.classList.add(Game.ClassNames.Points)
       $points.textContent = word.points
-      return Game.getListItem([$word, $points], Game.getDeleteElement(index))
+      return this.#configuration.mode === Grid.Modes.Default
+        ? Game.getListItem([$index, $word])
+        : Game.getListItem([$index, $word, $points], Game.getDeleteElement(index))
     }))
   }
 
@@ -336,10 +380,12 @@ export class Game {
     $containerLeft.append(...(Array.isArray($left) ? $left : [$left]))
     $container.append($containerLeft)
 
-    const $containerRight = document.createElement('div')
-    $containerRight.classList.add(Game.ClassNames.FlexRight)
-    $containerRight.append(...(Array.isArray($right) ? $right : [$right]))
-    $container.append($containerRight)
+    if ($right !== undefined) {
+      const $containerRight = document.createElement('div')
+      $containerRight.classList.add(Game.ClassNames.FlexRight)
+      $containerRight.append(...(Array.isArray($right) ? $right : [$right]))
+      $container.append($containerRight)
+    }
 
     return $li
   }
@@ -353,15 +399,10 @@ export class Game {
     FlexRight: 'flex-right',
     Icon: 'material-symbols-outlined',
     Points: 'points',
+    Reveal: 'reveal',
     Swap: 'swap',
     Valid: 'valid',
     Word: 'word'
-  })
-
-  static Moves = Object.freeze({
-    [Grid.Moves.Hint]: '💡',
-    [Grid.Moves.Spell]: '🟢',
-    [Grid.Moves.Swap]: '🟣'
   })
 
   static Params = Object.freeze({
