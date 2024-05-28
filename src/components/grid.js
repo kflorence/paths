@@ -10,7 +10,7 @@ import {
   cyrb53,
   getClassName,
   history,
-  optionally,
+  optionally, reverseString,
   url,
   urlParams
 } from './util'
@@ -31,8 +31,8 @@ export class Grid {
   #selectionStart
   #state
 
-  constructor (dictionary) {
-    this.#configuration = new Grid.Configuration()
+  constructor (dictionary, width, mode) {
+    this.#configuration = new Grid.Configuration(Grid.getId(), width, mode)
     this.#dictionary = dictionary
 
     const sharedSolution = Grid.getSolution(this.#configuration.hash)
@@ -67,7 +67,50 @@ export class Grid {
   }
 
   getSelection () {
-    return Array.from(this.#selection)
+    const cells = Array.from(this.#selection)
+    const pathIndexes = Grid.getIndexes(cells)
+    const lastPathCell = this.#getLastPathCell()
+    if (lastPathCell) {
+      // Make sure the selection can anchor to the existing path.
+      const selectionAnchorIndex = this.#getSelectionAnchorIndex(lastPathCell)
+      if (selectionAnchorIndex < 0) {
+        console.debug('Unable to anchor selection to existing path.')
+        pathIndexes.splice(0)
+      } else if (selectionAnchorIndex !== 0) {
+        console.debug('Anchoring selection at end.')
+        // Reverse pathIndexes to ensure they get stored in state in the proper order.
+        pathIndexes.reverse()
+      } else {
+        console.debug('Anchoring selection at beginning.')
+      }
+    }
+
+    let content = Grid.getContent(cells)
+    let isValid = this.#dictionary.isValid(content)
+    if (!isValid) {
+      // Try the selection in reverse
+      const contentReversed = reverseString(content)
+      isValid = this.#dictionary.isValid(contentReversed)
+      if (isValid) {
+        // The word was spelled backwards
+        cells.reverse()
+        content = contentReversed
+      }
+    }
+
+    const state = this.getState()
+    const revealedIndexes = Grid.getRevealedIndexes(state, pathIndexes)
+
+    return new Grid.Selection(
+      cells,
+      content,
+      pathIndexes,
+      this.isSecretWord(content),
+      isValid,
+      revealedIndexes,
+      revealedIndexes.filter((index) => !state.solution.hints.includes(index)),
+      lastPathCell ? pathIndexes.concat([lastPathCell.getIndex()]) : pathIndexes
+    )
   }
 
   getSources () {
@@ -94,8 +137,11 @@ export class Grid {
   }
 
   getWords (state) {
-    return (state ?? this.getState())
-      .solution.words.map((indexes) => new Word(this.#configuration.width, indexes.map((index) => this.#cells[index])))
+    state ??= this.getState()
+    return state.solution.words.map((indexes, index) => {
+      const move = state.solution.moves.find((move) => move.startsWith([Grid.Moves.Spell, index].join(':')))
+      return new Word(this.#configuration.width, indexes.map((index) => this.#cells[index]), move.split(':')[2])
+    })
   }
 
   hasHint (state) {
@@ -127,7 +173,7 @@ export class Grid {
   }
 
   isSecretWord (content) {
-    return this.getSecretWords().some((word) => word === content)
+    return this.getSecretWords().some((word) => word === content || word === reverseString(content))
   }
 
   removeSwap (index) {
@@ -555,18 +601,19 @@ export class Grid {
         // Handle cells that are part of a word
         const word = words.find((indexes) => indexes.includes(index))
         if (word) {
-          if (arrayIncludes(state.configuration.words, word)) {
-            // The user has spelled a secret word.
-            flags.add(Cell.Flags.Revealed)
-          }
-
           flags.add(Cell.Flags.Validated)
 
           const lastWordIndex = word.length - 1
           // If the starting path index of the word is later in the path than the ending path index of the word, the
           // word was spelled in reverse
           const isReversed = path.indexOf(word[0]) > path.indexOf(word[lastWordIndex])
-          const wordIndex = (isReversed ? Array.from(word).reverse() : word).indexOf(index)
+          const maybeReversed = (isReversed ? Array.from(word).reverse() : word)
+          const wordIndex = maybeReversed.indexOf(index)
+
+          if (arrayIncludes(state.configuration.words, maybeReversed)) {
+            // The user has spelled a secret word.
+            flags.add(Cell.Flags.Revealed)
+          }
 
           if (wordIndex === 0) {
             flags.add(Cell.Flags.WordStart)
@@ -594,84 +641,54 @@ export class Grid {
    * Responsible for validating a selection of cells by index to see if the user has spelled a valid word.
    */
   #validate () {
-    const pathIndexes = Grid.getIndexes(this.#selection)
-    const lastPathCell = this.#getLastPathCell()
-    if (lastPathCell) {
-      // Make sure the selection can anchor to the existing path.
-      const selectionAnchorIndex = this.#getSelectionAnchorIndex(lastPathCell)
-      if (selectionAnchorIndex < 0) {
-        console.debug('Unable to anchor selection to existing path.')
-        pathIndexes.splice(0)
-      } else if (selectionAnchorIndex !== 0) {
-        console.debug('Anchoring selection at end.')
-        // Reverse pathIndexes to ensure they get stored in state in the proper order.
-        pathIndexes.reverse()
-      } else {
-        console.debug('Anchoring selection at beginning.')
-      }
-    }
+    const selection = this.getSelection()
 
-    if (pathIndexes.length) {
-      const wordCells = Array.from(this.#selection)
-      let content = Grid.getContent(wordCells)
-      if (!this.#dictionary.isValid(content)) {
-        // Try the selection in reverse
-        content = Grid.getContent(wordCells.reverse())
-      }
-
-      if (this.#dictionary.isValid(content)) {
-        const state = this.getState()
-        const wordIndexes = Grid.getIndexes(wordCells)
-        const isSecretWord = this.isSecretWord(content)
-
-        // Add the dictionary used to verify the word
-        state.solution.sources.push(this.#dictionary.getSource(content))
-
-        // Add the spelled word to the list of spelled words
-        state.solution.words.push(wordIndexes)
-
-        const move = [Grid.Moves.Spell, state.solution.words.length - 1]
-        switch (this.#configuration.mode) {
-          case Grid.Modes.Challenge: {
-            // In challenge mode, all spelled words are added to the path.
-            state.solution.path.push(...pathIndexes)
-            if (isSecretWord) {
-              move.push(Grid.Match.Exact)
-            }
-            break
-          }
-          case Grid.Modes.Default: {
-            // In default mode, spelled words are only added to the path if they match the next secret word.
-            const revealedIndexes = Grid.getRevealedIndexes(state, wordIndexes)
-            if (this.isSecretWord(content) && arrayEquals(revealedIndexes, wordIndexes)) {
-              // The user spelled the next secret word.
-              state.solution.path.push(...pathIndexes)
-              move.push(Grid.Match.Exact)
-            } else {
-              const hintIndexes = revealedIndexes.filter((index) => !state.solution.hints.includes(index))
-              if (hintIndexes.length) {
-                // Add hints to any portion of the next secret word that were in the spelled word.
-                state.solution.hints.push(...hintIndexes)
-                move.push(Grid.Match.Partial)
-              }
-            }
-            break
-          }
-          default:
-            throw new Error(`Unsupported mode: ${this.#configuration.mode}.`)
-        }
-
-        // Update moves
-        state.solution.moves.push(move.join(':'))
-
-        this.#setState(state)
-      }
-    }
-
-    // If there is an existing last path item, include it in the update so it gets properly linked.
-    const indexesToUpdate = lastPathCell ? pathIndexes.concat([lastPathCell.getIndex()]) : pathIndexes
     this.#deselect(this.#selection.splice(0))
-    this.#update(indexesToUpdate)
+
+    if (!selection.pathIndexes.length || !selection.isValidWord) {
+      return
+    }
+
+    const state = this.getState()
+
+    // Add the dictionary used to verify the word
+    state.solution.sources.push(this.#dictionary.getSource(selection.content))
+
+    // Add the spelled word to the list of spelled words
+    state.solution.words.push(selection.wordIndexes)
+
+    const move = [Grid.Moves.Spell, state.solution.words.length - 1]
+    switch (this.#configuration.mode) {
+      case Grid.Modes.Challenge: {
+        // In challenge mode, all spelled words are added to the path.
+        state.solution.path.push(...selection.pathIndexes)
+        if (selection.isSecretWord) {
+          move.push(Grid.Match.Exact)
+        }
+        break
+      }
+      case Grid.Modes.Default: {
+        // In default mode, spelled words are only added to the path if they match the next secret word.
+        if (selection.isSecretWord && arrayEquals(selection.revealedIndexes, selection.pathIndexes)) {
+          // The user spelled the next secret word.
+          state.solution.path.push(...selection.pathIndexes)
+          move.push(Grid.Match.Exact)
+        } else if (selection.hintIndexes.length) {
+          // Add hints to any portion of the next secret word that were in the spelled word.
+          state.solution.hints.push(...selection.hintIndexes)
+          move.push(Grid.Match.Partial)
+        }
+        break
+      }
+      default:
+        throw new Error(`Unsupported mode: ${this.#configuration.mode}.`)
+    }
+
+    // Update moves
+    state.solution.moves.push(move.join(':'))
+
+    this.#setState(state)
+    this.#update(selection.updateIndexes)
   }
 
   static getContent (cells) {
@@ -797,7 +814,7 @@ export class Grid {
     size
     width
 
-    constructor (id, mode, width, hash) {
+    constructor (id, width, mode, hash) {
       this.id = id ?? Grid.getId()
       this.mode = mode ?? Grid.getMode()
       this.width = width ?? Grid.getWidth()
@@ -835,6 +852,39 @@ export class Grid {
     }
   }
 
+  static Selection = class {
+    cells
+    content
+    hintIndexes
+    isSecretWord
+    isValidWord
+    pathIndexes
+    revealedIndexes
+    updateIndexes
+    wordIndexes
+
+    constructor (
+      cells,
+      content,
+      pathIndexes,
+      isSecretWord,
+      isValidWord,
+      revealedIndexes,
+      hintIndexes,
+      updateIndexes
+    ) {
+      this.cells = cells
+      this.content = content
+      this.pathIndexes = pathIndexes ?? []
+      this.wordIndexes = Grid.getIndexes(cells) ?? []
+      this.isSecretWord = isSecretWord ?? false
+      this.isValidWord = isValidWord ?? false
+      this.revealedIndexes = revealedIndexes ?? []
+      this.hintIndexes = hintIndexes ?? []
+      this.updateIndexes = updateIndexes ?? []
+    }
+  }
+
   static State = class {
     configuration
     solution
@@ -859,14 +909,14 @@ export class Grid {
       path
       words
 
-      constructor (cells, words, path) {
+      constructor (cells, path, words) {
         this.cells = cells
         this.path = path
         this.words = words
       }
 
       static fromObject (obj) {
-        return new Grid.State.Configuration(obj.cells, obj.words, obj.path)
+        return new Grid.State.Configuration(obj.cells, obj.path, obj.words)
       }
     }
 
@@ -977,7 +1027,7 @@ export class Grid {
       this.score = score
       this.secretWordCount = state.configuration.words.length
       this.secretWordsGuessed = state.configuration.words
-        .filter((indexes) => arrayIncludes(state.solution.words, indexes)).length
+        .filter((indexes) => indexes.every((index) => state.solution.path.includes(index))).length
       this.swapCount = state.solution.swaps.length
       this.wordCount = words.length
     }

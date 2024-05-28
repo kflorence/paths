@@ -4,9 +4,10 @@ import { Cell } from './cell'
 export class Word {
   content
   indexes = []
+  match
   points
 
-  constructor (width, cells) {
+  constructor (width, cells, match) {
     const content = []
     const pointScoringLetters = []
     cells.forEach((cell) => {
@@ -21,6 +22,7 @@ export class Word {
     })
 
     this.content = content.join('')
+    this.match = match
 
     const lengthMultiplier = Math.floor(pointScoringLetters.length / Word.widthMultiplier(width))
     this.points = pointScoringLetters.reduce((points, letter) => points + letter.points, 0) * lengthMultiplier

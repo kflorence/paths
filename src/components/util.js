@@ -37,6 +37,20 @@ export function getClassName (...parts) {
   return parts.join('-')
 }
 
+export function getIndexesUnique (rand, array, max) {
+  const available = Object.keys(array)
+  if (max > available.length) {
+    max = available.length
+  }
+
+  const picked = []
+  for (; max > 0; max--) {
+    picked.push(Number(available.splice(randomIntInclusive(rand, available.length - 1), 1)[0]))
+  }
+
+  return picked
+}
+
 export function base64decode (string) {
   const binString = window.atob(base64unescape(string))
   // noinspection JSCheckFunctionSignatures
@@ -75,6 +89,10 @@ export function randomIntInclusive (rand, max, min = 0) {
 
 export function reload () {
   location.assign(url.search)
+}
+
+export function reverseString (str) {
+  return str.split('').reverse().join('')
 }
 
 export function shuffle (rand, array) {

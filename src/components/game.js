@@ -3,7 +3,7 @@ import { EventListeners } from './eventListeners'
 import Tippy from 'tippy.js'
 import 'tippy.js/dist/tippy.css'
 import { State } from './state'
-import { getBaseUrl, reload, urlParams, writeToClipboard } from './util'
+import { getBaseUrl, optionally, reload, urlParams, writeToClipboard } from './util'
 import { Cell } from './cell'
 import { Cache } from './cache'
 import { Dictionary } from './dictionary'
@@ -47,10 +47,25 @@ export class Game {
     this.#state = new State('game', {}, { overrides })
 
     this.#dictionary = new Dictionary()
-    this.#grid = new Grid(this.#dictionary)
+
+    const mode = this.#getMode()
+    const width = this.#getWidth()
+
+    this.#grid = new Grid(this.#dictionary, width, mode)
     this.#configuration = this.#grid.getConfiguration()
 
-    $new.href = `?${Grid.Params.Id.key}=${crypto.randomUUID().split('-')[0]}`
+    const url = getBaseUrl()
+    url.searchParams.set(Grid.Params.Id.key, crypto.randomUUID().split('-')[0])
+
+    if (mode !== Grid.Modes.Default) {
+      url.searchParams.set(Grid.Params.Mode.key, mode)
+    }
+
+    if (width !== Grid.DefaultWidth) {
+      url.searchParams.set(Grid.Params.Width.key, width)
+    }
+
+    $new.href = url.toString()
     $path.href = `?${Grid.Params.Id.key}=${this.#configuration.id}`
     $path.textContent = this.#configuration.id
 
@@ -177,6 +192,14 @@ export class Game {
     }
   }
 
+  #getMode () {
+    return this.#state.get(Grid.Params.Mode.key) ?? Grid.getMode()
+  }
+
+  #getWidth () {
+    return optionally(this.#state.get(Grid.Params.Width.key), Number) ?? Grid.getWidth()
+  }
+
   #onExpand () {
     this.#state.set(Game.Params.Expand.key, !this.#state.get(Game.Params.Expand.key))
     this.#updateDrawer()
@@ -215,12 +238,24 @@ export class Game {
   }
 
   #onModeChange (event) {
-    Grid.Params.Mode.set(event.target.value)
+    const mode = event.target.value
+    const state = this.#state.get()
+    state.mode = mode
+    this.#state.set(state)
+
+    Grid.Params.Mode.set(mode)
+
     reload()
   }
 
   #onWidthChange (event) {
-    Grid.Params.Width.set(event.target.value)
+    const width = Number(event.target.value)
+    const state = this.#state.get()
+    state.width = width
+    this.#state.set(state)
+
+    Grid.Params.Width.set(width)
+
     reload()
   }
 
@@ -240,37 +275,34 @@ export class Game {
   #updateSelection () {
     this.#updateUndo()
 
-    const selection = this.#grid.getSelection().filter((cell) => !cell.getFlags().has(Cell.Flags.Swap))
+    const selection = this.#grid.getSelection()
     $selection.replaceChildren()
     $selection.classList.remove(Game.ClassNames.Valid)
 
-    if (!selection.length) {
+    if (!selection.cells.filter((cell) => !cell.getFlags().has(Cell.Flags.Swap)).length) {
       return
     }
 
-    let content = Grid.getContent(selection)
-    let isValid = this.#dictionary.isValid(content)
-    if (!isValid) {
-      const contentReversed = Grid.getContent(selection.reverse())
-      isValid = this.#dictionary.isValid(content)
-      if (isValid) {
-        content = contentReversed
-      }
+    const $content = document.createElement('span')
+    $content.textContent = selection.content
+    $content.classList.toggle(Game.ClassNames.Valid, selection.isValidWord)
+
+    if (selection.isSecretWord) {
+      $content.classList.add(Game.ClassNames.MatchExact)
     }
 
-    const $content = document.createElement('span')
-    $content.textContent = content
-    $content.classList.toggle(Game.ClassNames.Valid, isValid)
-    $content.classList.toggle(Game.ClassNames.Reveal, this.#grid.isSecretWord(content))
-
     const children = [$content]
-    if (isValid && this.#configuration.mode === Grid.Modes.Challenge) {
-      const configuration = this.#grid.getConfiguration()
-      const word = new Word(configuration.width, selection)
-      const $points = document.createElement('span')
-      $points.classList.add(Game.ClassNames.Points)
-      $points.textContent = word.points
-      children.push($points)
+    if (selection.isValidWord) {
+      if (this.#configuration.mode === Grid.Modes.Challenge) {
+        const configuration = this.#grid.getConfiguration()
+        const word = new Word(configuration.width, selection.cells)
+        const $points = document.createElement('span')
+        $points.classList.add(Game.ClassNames.Points)
+        $points.textContent = word.points
+        children.push($points)
+      } else if (selection.hintIndexes.length) {
+        $content.classList.add(Game.ClassNames.MatchPartial)
+      }
     }
 
     $selection.replaceChildren(...children)
@@ -316,11 +348,12 @@ export class Game {
   }
 
   #updateModeSelector () {
+    const mode = this.#getMode()
     $mode.replaceChildren(...Object.entries(Grid.Modes).map(([key, value]) => {
       const $option = document.createElement('option')
       $option.textContent = key
       $option.value = value
-      if (value === this.#configuration.mode) {
+      if (value === mode) {
         $option.selected = true
       }
       return $option
@@ -328,12 +361,12 @@ export class Game {
   }
 
   #updateWidthSelector () {
-    const configuration = this.#grid.getConfiguration()
-    $width.replaceChildren(...Grid.Widths.map((width) => {
+    const width = this.#getWidth()
+    $width.replaceChildren(...Grid.Widths.map((value) => {
       const $option = document.createElement('option')
-      $option.textContent = `${width}x${width}`
-      $option.value = width.toString()
-      if (width === configuration.width) {
+      $option.textContent = `${value}x${value}`
+      $option.value = value.toString()
+      if (value === width) {
         $option.selected = true
       }
       return $option
@@ -347,7 +380,8 @@ export class Game {
       $index.textContent = `${index + 1}.`
       const $word = document.createElement('span')
       $word.classList.add(Game.ClassNames.Word)
-      $word.classList.toggle(Game.ClassNames.Reveal, this.#grid.isSecretWord(word.content))
+      $word.classList.toggle(Game.ClassNames.MatchExact, word.match === Grid.Match.Exact)
+      $word.classList.toggle(Game.ClassNames.MatchPartial, word.match === Grid.Match.Partial)
       $word.textContent = word.content
       const $points = document.createElement('span')
       $points.classList.add(Game.ClassNames.Points)
@@ -398,8 +432,9 @@ export class Game {
     FlexLeft: 'flex-left',
     FlexRight: 'flex-right',
     Icon: 'material-symbols-outlined',
+    MatchExact: 'match-exact',
+    MatchPartial: 'match-partial',
     Points: 'points',
-    Reveal: 'reveal',
     Swap: 'swap',
     Valid: 'valid',
     Word: 'word'

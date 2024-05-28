@@ -1,4 +1,4 @@
-import { randomIntInclusive, splitmix32 } from './util'
+import { getIndexesUnique, randomIntInclusive, reverseString, splitmix32 } from './util'
 import { Grid } from './grid'
 import { Cell } from './cell'
 
@@ -22,12 +22,30 @@ export class Generator {
 
     const words = Array.from(this.words)
 
-    // TODO choose some random words to reverse
+    // Randomly reverse up to half of the words
+    const reverseCount = randomIntInclusive(this.rand, Math.floor(words.length / 2))
+    console.debug(`Reversing ${reverseCount} words.`)
+    getIndexesUnique(this.rand, words, reverseCount)
+      .forEach((index) => { words[index] = reverseString(words[index]) })
 
-    this.characters = words.reduce((characters, word) => characters.concat(word.split('')), [])
+    const characters = words.reduce((characters, word) => characters.concat(word.split('')), [])
+    if (configuration.mode === Grid.Modes.Challenge) {
+      // Randomly swap up to 1/8 of characters
+      const swapCount = randomIntInclusive(this.rand, Math.floor(characters.length / 8)) * 2
+      console.debug(`Swapping ${swapCount} characters.`)
+      const swapIndexes = getIndexesUnique(this.rand, characters, swapCount)
+      while (swapIndexes.length) {
+        const [sourceIndex] = swapIndexes.splice(0, 1)
+        const [targetIndex] = swapIndexes.splice(swapIndexes.length - 1, 1)
+        console.debug(
+          `Swapping ${sourceIndex} (${characters[sourceIndex]}) with ${targetIndex} (${characters[targetIndex]})`)
+        const source = characters[sourceIndex]
+        characters[sourceIndex] = characters[targetIndex]
+        characters[targetIndex] = source
+      }
+    }
 
-    // TODO in challenge mode pick some characters to swap
-
+    this.characters = characters
     this.configuration = configuration
     this.dictionary = dictionary
     this.wordBoundaries = Generator.getWordBoundaries(this.words)
@@ -45,12 +63,13 @@ export class Generator {
       this.#step()
     }
 
+    const cells = this.#steps.map((step) => step.state)
     const path = this.#path.map((step) => step.index)
+    const words = this.wordBoundaries.map((boundary) => boundary.map((index) => path[index]))
+
     console.debug('Done.', path)
 
-    const cells = this.#steps.map((step) => step.state)
-    const words = this.wordBoundaries.map((boundary) => boundary.map((index) => path[index]))
-    return new Grid.State.Configuration(cells, words, path)
+    return new Grid.State.Configuration(cells, path, words)
   }
 
   #getAvailableCellIndexes () {

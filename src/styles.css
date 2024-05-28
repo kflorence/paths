@@ -625,6 +625,11 @@ p.center {
   display: inline-block;
 }
 
+.grid-mode-challenge .match-exact,
+.grid-mode-challenge .valid.match-exact {
+  color: #FFED65;
+}
+
 .grid-mode-challenge #status::before {
   content: 'Score:';
 }
@@ -636,6 +641,21 @@ p.center {
 .grid-mode-default #swaps,
 .grid-mode-default #undo {
   display: none;
+}
+
+.grid-mode-default .valid,
+.grid-mode-default .word {
+  color: #DF3B57;
+}
+
+.grid-mode-default .match-partial,
+.grid-mode-default .valid.match-partial {
+  color: #FFED65;
+}
+
+.grid-mode-default .match-exact,
+.grid-mode-default .valid.match-exact {
+  color: #59FFA0;
 }
 
 .grid-mode-default #status::before {
@@ -760,9 +780,7 @@ p.center {
   text-decoration: none;
 }
 
-.points,
-.reveal,
-.valid.reveal {
+.points {
   color: #FFED65;
 }
 
