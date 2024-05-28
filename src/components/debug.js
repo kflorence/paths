@@ -1,4 +1,4 @@
-import { State } from './state'
+import { urlParams } from './util'
 
 const console = window.console = window.console || { debug: function () {} }
 const consoleDebug = console.debug
@@ -8,4 +8,4 @@ export function debug (debug) {
 }
 
 // Silence debug logging by default
-debug(State.params.has(State.Params.Debug) ?? false)
+debug(urlParams.has('debug'))

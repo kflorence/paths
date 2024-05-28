@@ -3,60 +3,68 @@ import { EventListeners } from './eventListeners'
 import Tippy from 'tippy.js'
 import 'tippy.js/dist/tippy.css'
 import { State } from './state'
-import { Dictionaries, DictionaryNames, Word, Words } from './word'
-import { writeToClipboard } from './util'
+import { getBaseUrl, optionally, reload, urlParams, writeToClipboard } from './util'
 import { Cell } from './cell'
+import { Cache } from './cache'
+import { Dictionary } from './dictionary'
+import { Word } from './word'
 
 const $expand = document.getElementById('expand')
 const $footer = document.getElementById('footer')
+const $hint = document.getElementById('hint')
 const $includeState = document.getElementById('include-state')
 const $includeProfanity = document.getElementById('include-profanity')
+const $mode = document.getElementById('mode')
 const $new = document.getElementById('new')
 const $path = document.getElementById('path')
 const $reset = document.getElementById('reset')
-const $score = document.getElementById('score')
-const $seedWords = document.getElementById('seed-words')
 const $selection = document.getElementById('selection')
 const $share = document.getElementById('share')
-const $statistics = document.getElementById('statistics')
-const $swaps = document.getElementById('swaps')
+const $statistics = document.querySelector('#statistics > ul')
+const $status = document.getElementById('status')
+const $swaps = document.querySelector('#swaps > ul')
 const $undo = document.getElementById('undo')
 const $width = document.getElementById('width')
-const $words = document.getElementById('words')
+const $words = document.querySelector('#words > ul')
 
 const confirm = window.confirm
 const crypto = window.crypto
 const tippy = Tippy($share, { content: 'Copied!', theme: 'custom', trigger: 'manual' })
 
-if (State.params.has(Grid.StateParam.name)) {
+if (urlParams.has(Grid.Params.Solution.key)) {
   document.body.classList.add('share')
 }
 
 export class Game {
+  #configuration
+  #dictionary
   #eventListeners = new EventListeners({ context: this })
   #grid
   #state
-  #words
 
   constructor () {
-    this.#state = new State(
-      'game',
-      {},
-      { params: { [State.Params.Expand]: new State.Param(State.Params.Expand) } }
-    )
+    const overrides = [Game.Params.Expand]
+    this.#state = new State('game', {}, { overrides })
 
-    this.#words = new Words()
-    this.#grid = new Grid(this.#words)
+    this.#dictionary = new Dictionary()
 
-    $new.href = `?${State.Params.Id}=${crypto.randomUUID().split('-')[0]}`
-    $path.href = `?${State.Params.Id}=${this.#grid.id}`
-    $path.textContent = this.#grid.id
+    const mode = this.#getMode()
+    const width = this.#getWidth()
+
+    this.#grid = new Grid(this.#dictionary, width, mode)
+    this.#configuration = this.#grid.getConfiguration()
+
+    $new.href = `?${Grid.Params.Id.key}=${crypto.randomUUID().split('-')[0]}`
+    $path.href = `?${Grid.Params.Id.key}=${this.#configuration.id}`
+    $path.textContent = this.#configuration.id
 
     this.#eventListeners.add([
       { type: 'change', element: $includeProfanity, handler: this.#onIncludeProfanityChange },
       { type: 'change', element: $includeState, handler: this.#onIncludeStateChange },
+      { type: 'change', element: $mode, handler: this.#onModeChange },
       { type: 'change', element: $width, handler: this.#onWidthChange },
       { type: 'click', element: $expand, handler: this.#onExpand },
+      { type: 'click', element: $hint, handler: this.#onHint },
       { type: 'click', element: $reset, handler: this.reset },
       { type: 'click', element: $share, handler: this.share },
       { type: 'click', element: $swaps, handler: this.#deleteSwap },
@@ -67,6 +75,7 @@ export class Game {
     ])
 
     this.#updateDrawer()
+    this.#updateModeSelector()
     this.#updateWidthSelector()
   }
 
@@ -83,55 +92,78 @@ export class Game {
 
   async setup () {
     // Load the base dictionary, and generate the grid from that
-    await this.#words.load(Dictionaries.Default)
+    await this.#dictionary.load(Dictionary.Sources.Default)
     this.#grid.setup()
-    this.#updateSeedWords()
     this.update()
 
+    // TODO make dictionary loading more generic
     const state = this.#state.get()
     if (
       // User has the dictionary enabled
       state.includeProfanityInDictionary ||
       // User has validated profane words, or loaded a share URL with profane words in it
-      this.#grid.getDictionaries().includes(DictionaryNames.Profanity)
+      this.#grid.getSources().includes(Dictionary.Names.Profanity)
     ) {
       // Profane words can be validated, but they won't be used to generate the grid
-      await this.#words.load(Dictionaries.Profanity)
+      await this.#dictionary.load(Dictionary.Sources.Profanity)
     }
   }
 
   async share () {
-    const id = this.#grid.id
-    const width = this.#grid.width
+    const { id, mode, width } = this.#configuration
     const size = `${width}x${width}`
     const state = this.#state.get()
-    const url = new URL(State.url.toString())
+    const url = getBaseUrl()
     const statistics = this.#grid.getStatistics()
 
-    if (state.includeStateInShareUrl) {
-      url.searchParams.set(State.Params.State, this.#grid.getState())
-    } else {
-      url.searchParams.set(State.Params.Id, id)
-      url.searchParams.set(State.Params.Width, width)
+    url.searchParams.set(Grid.Params.Id.key, id)
+
+    if (mode !== Grid.DefaultMode) {
+      url.searchParams.set(Grid.Params.Mode.key, mode)
     }
 
-    const dictionaries = this.#grid.getDictionaries().join(' + ')
-    const moves = statistics.moves.map((move) => move === Grid.Moves.Spell ? '🟩' : '🟪').join('')
+    if (width !== Grid.DefaultWidth) {
+      url.searchParams.set(Grid.Params.Width.key, width)
+    }
 
-    const content = `Path: #${id} (${size})\n` +
-      `Score: ${statistics.score} ` +
-      `${statistics.rating.description} ${statistics.rating.emoji} (${statistics.progress}% filled)\n` +
-      (moves ? `Moves: ${moves}\n` : '') +
-      (dictionaries ? `Dictionary: ${dictionaries}\n` : '') +
-      `${url.toString()}`
+    if (state.includeStateInShareUrl) {
+      url.searchParams.set(Grid.Params.Solution.key, Grid.Params.Solution.encode(this.#grid.getState().solution))
+    }
 
-    await writeToClipboard(content)
+    const content = [`Path#${id} | ${size} | ${statistics.secretWordsGuessed}/${statistics.secretWordCount}`]
+
+    if (mode === Grid.Modes.Challenge) {
+      content.push(`Score: ${statistics.score} / ${statistics.progress}%`)
+    }
+
+    let moves = ''
+    const lastMovesIndex = statistics.moves.length - 1
+    statistics.moves.forEach((move, index) => {
+      moves += move.symbol
+      if (index !== lastMovesIndex && (index + 1) % width === 0) {
+        moves += '\n'
+      }
+    })
+
+    content.push(moves)
+
+    const sources = this.#grid.getSources()
+    if (sources.length > 1) {
+      content.push(`Dictionary: ${sources.join(' + ')}`)
+    }
+
+    content.push(url.toString())
+
+    console.debug(content)
+
+    await writeToClipboard(content.join('\n'))
     tippy.show()
     setTimeout(() => tippy.hide(), 1000)
   }
 
   update () {
-    this.#updateStatistics()
+    this.#updateHint()
+    this.#updateStatus()
     this.#updateSwaps()
     this.#updateUndo()
     this.#updateWords()
@@ -151,8 +183,16 @@ export class Game {
     }
   }
 
+  #getMode () {
+    return Grid.Params.Mode.get() ?? this.#state.get(Grid.Params.Mode.key) ?? Grid.DefaultMode
+  }
+
+  #getWidth () {
+    return Grid.Params.Width.get() ?? optionally(this.#state.get(Grid.Params.Width.key), Number) ?? Grid.DefaultWidth
+  }
+
   #onExpand () {
-    this.#state.set(State.Params.Expand, !this.#state.get(State.Params.Expand))
+    this.#state.set(Game.Params.Expand.key, !this.#state.get(Game.Params.Expand.key))
     this.#updateDrawer()
   }
 
@@ -160,13 +200,18 @@ export class Game {
     this.update()
   }
 
+  #onHint () {
+    this.#grid.hint()
+    this.#updateHint()
+  }
+
   async #onIncludeProfanityChange (event) {
     const state = this.#state.get()
     state.includeProfanityInDictionary = event.target.checked
     if (state.includeProfanityInDictionary) {
-      await this.#words.load(Dictionaries.Profanity)
+      await this.#dictionary.load(Dictionary.Sources.Profanity)
     } else {
-      this.#words.unload(Dictionaries.Profanity)
+      this.#dictionary.unload(Dictionary.Names.Profanity)
     }
     this.#state.set(state)
   }
@@ -183,9 +228,26 @@ export class Game {
     }
   }
 
+  #onModeChange (event) {
+    const mode = event.target.value
+    const state = this.#state.get()
+    state.mode = mode
+    this.#state.set(state)
+
+    Grid.Params.Mode.set(mode)
+
+    reload()
+  }
+
   #onWidthChange (event) {
-    State.params.set(State.Params.Width, event.target.value)
-    State.reload()
+    const width = Number(event.target.value)
+    const state = this.#state.get()
+    state.width = width
+    this.#state.set(state)
+
+    Grid.Params.Width.set(width)
+
+    reload()
   }
 
   #updateDrawer () {
@@ -197,41 +259,31 @@ export class Game {
     $includeState.checked = state.includeStateInShareUrl
   }
 
-  #updateSeedWords () {
-    $seedWords.replaceChildren(...this.#grid.getSeedWords().map((word) => {
-      const $li = document.createElement('li')
-      $li.textContent = word
-      return $li
-    }))
+  #updateHint () {
+    $hint.classList.toggle(Game.ClassNames.Disabled, !this.#grid.hasHint())
   }
 
   #updateSelection () {
     this.#updateUndo()
 
-    const selection = this.#grid.getSelection().filter((cell) => !cell.getFlags().has(Cell.Flags.Swap))
+    const selection = this.#grid.getSelection()
     $selection.replaceChildren()
     $selection.classList.remove(Game.ClassNames.Valid)
 
-    if (!selection.length) {
+    // Ignore cells marked for swap
+    if (!selection.cells.filter((cell) => !cell.getFlags().has(Cell.Flags.Swap)).length) {
+      // Nothing to do
       return
     }
 
     const $content = document.createElement('span')
-    $content.textContent = Grid.getContent(selection)
+    $content.textContent = selection.content
+    $content.classList.toggle(Game.ClassNames.Valid, selection.isValidWord)
 
     const children = [$content]
-    if (this.#words.isValid($content.textContent)) {
-      $content.classList.add(Game.ClassNames.Valid)
-    } else {
-      const content = Grid.getContent(selection.reverse())
-      if (this.#words.isValid(content)) {
-        $content.classList.add(Game.ClassNames.Valid)
-        $content.textContent = content
-      }
-    }
-
-    if ($content.classList.contains(Game.ClassNames.Valid)) {
-      const word = new Word(this.#grid.width, selection)
+    if (selection.isValidWord && this.#configuration.mode === Grid.Modes.Challenge) {
+      const configuration = this.#grid.getConfiguration()
+      const word = new Word(configuration.width, selection.cells, selection.match)
       const $points = document.createElement('span')
       $points.classList.add(Game.ClassNames.Points)
       $points.textContent = word.points
@@ -241,25 +293,31 @@ export class Game {
     $selection.replaceChildren(...children)
   }
 
-  #updateStatistics () {
+  #updateStatus () {
     const statistics = this.#grid.getStatistics()
-    $score.textContent = statistics.score
-    $statistics.replaceChildren(...[
-      { name: 'Average Word Length', value: statistics.averageWordLength },
-      { name: 'Progress', value: `${statistics.progress}%` },
-      { name: 'Rating', value: `${statistics.rating.description} ${statistics.rating.emoji}` },
-      { name: 'Your Best Score', value: `${statistics.best} (${statistics.bestDiff})` }
-    ].map((item) => {
-      const $content = document.createElement('span')
-      $content.textContent = item.name
-      const $value = document.createElement('span')
-      $value.textContent = item.value
-      return Game.getListItem($content, $value)
-    }))
+    const secretWords = `${statistics.secretWordsGuessed}/${statistics.secretWordCount}`
+    if (this.#configuration.mode === Grid.Modes.Challenge) {
+      $status.textContent = statistics.score
+      $statistics.replaceChildren(...[
+        { name: 'Progress', value: `${statistics.progress}%` },
+        { name: 'Average Word Length', value: statistics.averageWordLength },
+        { name: 'Secret Words Found', value: secretWords },
+        { name: 'Your Best Score', value: `${statistics.best} (${statistics.bestDiff})` }
+      ].map((item) => {
+        const $content = document.createElement('span')
+        $content.textContent = item.name
+        const $value = document.createElement('span')
+        $value.textContent = item.value
+        return Game.getListItem($content, $value)
+      }))
+    } else {
+      $status.textContent = secretWords
+    }
   }
 
   #updateSwaps () {
     const swaps = this.#grid.getSwaps()
+    // noinspection JSCheckFunctionSignatures
     $swaps.replaceChildren(...swaps.map((swap, index) => {
       const $swap = document.createElement('span')
       $swap.classList.add(Game.ClassNames.Swap)
@@ -269,18 +327,32 @@ export class Game {
   }
 
   #updateUndo () {
-    const moves = this.#grid.getMoves()
+    const moves = this.#grid.getMoves().filter((move) => move.type !== Grid.Move.Types.Hint)
     const selection = this.#grid.getSelection()
     const disabled = moves.length === 0 && selection.length === 0
     $undo.classList.toggle(Game.ClassNames.Disabled, disabled)
   }
 
-  #updateWidthSelector () {
-    $width.replaceChildren(...Grid.Widths.map((width) => {
+  #updateModeSelector () {
+    const mode = this.#getMode()
+    $mode.replaceChildren(...Object.entries(Grid.Modes).map(([key, value]) => {
       const $option = document.createElement('option')
-      $option.textContent = `${width}x${width}`
-      $option.value = width.toString()
-      if (width === this.#grid.width) {
+      $option.textContent = key
+      $option.value = value
+      if (value === mode) {
+        $option.selected = true
+      }
+      return $option
+    }))
+  }
+
+  #updateWidthSelector () {
+    const width = this.#getWidth()
+    $width.replaceChildren(...Grid.Widths.map((value) => {
+      const $option = document.createElement('option')
+      $option.textContent = `${value}x${value}`
+      $option.value = value.toString()
+      if (value === width) {
         $option.selected = true
       }
       return $option
@@ -289,15 +361,20 @@ export class Game {
 
   #updateWords () {
     const words = this.#grid.getWords()
-
     $words.replaceChildren(...words.map((word, index) => {
+      const $index = document.createElement('span')
+      $index.textContent = `${index + 1}.`
       const $word = document.createElement('span')
       $word.classList.add(Game.ClassNames.Word)
-      $word.textContent = `${index + 1}. ${word.content}`
+      $word.classList.toggle(Game.ClassNames.MatchExact, word.match === Grid.Match.Exact)
+      $word.classList.toggle(Game.ClassNames.MatchPartial, word.match === Grid.Match.Partial)
+      $word.textContent = word.content
       const $points = document.createElement('span')
       $points.classList.add(Game.ClassNames.Points)
       $points.textContent = word.points
-      return Game.getListItem([$word, $points], Game.getDeleteElement(index))
+      return this.#configuration.mode === Grid.DefaultMode
+        ? Game.getListItem([$index, $word])
+        : Game.getListItem([$index, $word, $points], Game.getDeleteElement(index))
     }))
   }
 
@@ -323,10 +400,12 @@ export class Game {
     $containerLeft.append(...(Array.isArray($left) ? $left : [$left]))
     $container.append($containerLeft)
 
-    const $containerRight = document.createElement('div')
-    $containerRight.classList.add(Game.ClassNames.FlexRight)
-    $containerRight.append(...(Array.isArray($right) ? $right : [$right]))
-    $container.append($containerRight)
+    if ($right !== undefined) {
+      const $containerRight = document.createElement('div')
+      $containerRight.classList.add(Game.ClassNames.FlexRight)
+      $containerRight.append(...(Array.isArray($right) ? $right : [$right]))
+      $container.append($containerRight)
+    }
 
     return $li
   }
@@ -339,9 +418,15 @@ export class Game {
     FlexLeft: 'flex-left',
     FlexRight: 'flex-right',
     Icon: 'material-symbols-outlined',
+    MatchExact: 'match-exact',
+    MatchPartial: 'match-partial',
     Points: 'points',
     Swap: 'swap',
     Valid: 'valid',
     Word: 'word'
+  })
+
+  static Params = Object.freeze({
+    Expand: Cache.urlParams('expand')
   })
 }

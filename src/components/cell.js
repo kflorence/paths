@@ -131,8 +131,10 @@ export class Cell {
     DirectionSouthWest: new Flag(Directions.SouthWest),
     DirectionWest: new Flag(Directions.West),
     First: new Flag('first'),
+    Hint: new Flag('hint'),
     Last: new Flag('last'),
     Path: new Flag('path'),
+    Revealed: new Flag('revealed'),
     Selected: new Flag('selected'),
     Swap: new Flag('swap'),
     Swapped: new Flag('swapped'),
@@ -143,7 +145,7 @@ export class Cell {
 
   static FlagsByName = Object.fromEntries(Object.values(Cell.Flags).map((flag) => [flag.name, flag]))
 
-  static StickyFlags = Object.freeze([Cell.Flags.Swapped])
+  static StickyFlags = Object.freeze([Cell.Flags.Hint, Cell.Flags.Swapped])
 
   static Name = 'cell'
 
@@ -170,6 +172,10 @@ export class Cell {
 
     getFlags () {
       return this.#flags ?? (this.#flags = new Flags(this.flags))
+    }
+
+    static fromObject (obj) {
+      return new Cell.State(obj.index, obj.content, obj.flags)
     }
   }
 }

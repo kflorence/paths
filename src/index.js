@@ -1,6 +1,6 @@
 import { debug } from './components/debug'
 import { Game } from './components/game'
-import './components/help'
+import './components/info'
 
 if (process.env.NODE_ENV === 'production') {
   require('./components/analytics')
