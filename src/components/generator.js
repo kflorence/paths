@@ -65,11 +65,11 @@ export class Generator {
 
     const cells = this.#steps.map((step) => step.state)
     const path = this.#path.map((step) => step.index)
-    const words = this.wordBoundaries.map((boundary) => boundary.map((index) => path[index]))
+    const wordIndexes = this.wordBoundaries.map((boundary) => boundary.map((index) => path[index]))
 
     console.debug('Done.', path)
 
-    return new Grid.State.Configuration(cells, path, words)
+    return new Grid.State.Configuration(cells, path, this.words, wordIndexes)
   }
 
   #getAvailableCellIndexes () {

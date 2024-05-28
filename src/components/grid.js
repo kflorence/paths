@@ -39,10 +39,20 @@ export class Grid {
 
     // Don't persist changes locally if a solution is provided in the URL
     const persistence = sharedSolution === undefined
-    const solution = sharedSolution ?? new Grid.State.Solution(this.#configuration.hash)
-    const user = new Grid.State.User()
+    const initialState = new Grid.State(
+      undefined,
+      sharedSolution ?? new Grid.State.Solution(this.#configuration.hash),
+      new Grid.State.User(),
+      Grid.State.Version
+    )
 
-    this.#state = new State(this.#configuration.hash, { solution, user }, { persistence })
+    this.#state = new State(this.#configuration.hash, initialState, { persistence })
+
+    const state = this.getState()
+    if (state.version < Grid.State.Version) {
+      console.warn(`Ignoring stale cache with version ${state.version}. Current version: ${Grid.State.Version}`)
+      this.#state.set(initialState)
+    }
 
     document.body.classList.add(getClassName(Grid.Name, 'mode', this.#configuration.mode))
     $grid.dataset.width = this.#configuration.width
@@ -59,11 +69,6 @@ export class Grid {
 
   getMoves () {
     return this.getState().solution.moves
-  }
-
-  getSecretWords (state) {
-    return (state ?? this.getState())
-      .configuration.words.map((indexes) => indexes.map((index) => this.#cells[index].getContent()).join(''))
   }
 
   getSelection () {
@@ -105,7 +110,7 @@ export class Grid {
       cells,
       content,
       pathIndexes,
-      this.isSecretWord(content),
+      state.configuration.words.includes(content),
       isValid,
       revealedIndexes,
       revealedIndexes.filter((index) => !state.solution.hints.includes(index)),
@@ -138,9 +143,14 @@ export class Grid {
 
   getWords (state) {
     state ??= this.getState()
-    return state.solution.words.map((indexes, index) => {
-      const move = state.solution.moves.find((move) => move.startsWith([Grid.Moves.Spell, index].join(':')))
-      return new Word(this.#configuration.width, indexes.map((index) => this.#cells[index]), move.split(':')[2])
+    return state.solution.words.map((word, index) => {
+      const move = state.solution.moves
+        .find((move) => move.type === Grid.Move.Types.Spell && move.value.index === index)
+      return new Word(
+        this.#configuration.width,
+        word.map((index) => this.#cells[index]),
+        move.value.match
+      )
     })
   }
 
@@ -161,7 +171,7 @@ export class Grid {
     }
 
     state.solution.hints.push(index)
-    state.solution.moves.push([Grid.Moves.Hint, index].join(':'))
+    state.solution.moves.push(Grid.Move.hint(index))
 
     this.#setState(state)
     this.#update([index])
@@ -172,10 +182,6 @@ export class Grid {
     return remainingPath.find((index) => !state.solution.hints.includes(index))
   }
 
-  isSecretWord (content) {
-    return this.getSecretWords().some((word) => word === content || word === reverseString(content))
-  }
-
   removeSwap (index) {
     const state = this.getState()
 
@@ -183,8 +189,8 @@ export class Grid {
     const swap = state.solution.swaps.splice(index, 1)[0]
 
     // Update moves
-    const move = [Grid.Moves.Swap, index].join(':')
-    const moveIndex = state.solution.moves.findIndex((m) => move === m)
+    const moveIndex = state.solution.moves
+      .findIndex((move) => move.type === Grid.Move.Types.Swap && move.value === index)
     state.solution.moves.splice(moveIndex, 1)
 
     this.#setState(state)
@@ -213,9 +219,8 @@ export class Grid {
 
     // Update moves
     state.solution.moves = state.solution.moves.filter((move) => {
-      const [type, wordIndex] = move.split(':')
       // Remove any spell moves including and after the removed word index
-      return !(type === Grid.Moves.Spell && wordIndex >= index)
+      return !(move.type === Grid.Move.Types.Spell && move.value.index >= index)
     })
 
     this.#setState(state)
@@ -260,19 +265,19 @@ export class Grid {
     }
 
     const state = this.getState()
-    const moves = state.solution.moves.filter((move) => !move.startsWith(Grid.Moves.Hint))
+    const moves = state.solution.moves.filter((move) => move.type !== Grid.Move.Types.Hint)
     if (moves.length === 0) {
       // If there are no moves, nothing to do.
       return
     }
 
-    const [type, index] = moves[moves.length - 1].split(':')
-    switch (type) {
-      case Grid.Moves.Spell:
-        this.removeWord(index)
+    const move = moves[moves.length - 1]
+    switch (move.type) {
+      case Grid.Move.Types.Spell:
+        this.removeWord(move.value.index)
         break
-      case Grid.Moves.Swap:
-        this.removeSwap(index)
+      case Grid.Move.Types.Swap:
+        this.removeSwap(move.value)
         break
     }
   }
@@ -529,7 +534,7 @@ export class Grid {
     state.solution.swaps.push(swap)
 
     // Update moves
-    state.solution.moves.push([Grid.Moves.Swap, state.solution.swaps.length - 1].join(':'))
+    state.solution.moves.push(Grid.Move.swap(state.solution.swaps.length - 1))
 
     this.#setState(state)
     this.#update(swap)
@@ -546,9 +551,9 @@ export class Grid {
     const hints = state.solution.hints
     const path = state.solution.path
     const swaps = state.solution.swaps
-    const words = this.#configuration.mode === Grid.Modes.Default
-      // In default mode, only secret words count
-      ? state.configuration.words
+    const words = this.#configuration.mode === Grid.Modes.Pathfinder
+      // In pathfinder mode, only secret words count
+      ? state.configuration.wordIndexes
       // In challenge mode all spelled words count
       : state.solution.words
 
@@ -607,10 +612,10 @@ export class Grid {
           // If the starting path index of the word is later in the path than the ending path index of the word, the
           // word was spelled in reverse
           const isReversed = path.indexOf(word[0]) > path.indexOf(word[lastWordIndex])
-          const maybeReversed = (isReversed ? Array.from(word).reverse() : word)
-          const wordIndex = maybeReversed.indexOf(index)
+          const wordIndexes = (isReversed ? Array.from(word).reverse() : word)
+          const wordIndex = wordIndexes.indexOf(index)
 
-          if (arrayIncludes(state.configuration.words, maybeReversed)) {
+          if (arrayIncludes(state.configuration.wordIndexes, wordIndexes)) {
             // The user has spelled a secret word.
             flags.add(Cell.Flags.Revealed)
           }
@@ -657,35 +662,30 @@ export class Grid {
     // Add the spelled word to the list of spelled words
     state.solution.words.push(selection.wordIndexes)
 
-    const move = [Grid.Moves.Spell, state.solution.words.length - 1]
+    // Update moves
+    const index = state.solution.words.length - 1
+    state.solution.moves.push(Grid.Move.spell(this.#configuration.mode, index, selection.match))
+
+    // Update path
     switch (this.#configuration.mode) {
       case Grid.Modes.Challenge: {
-        // In challenge mode, all spelled words are added to the path.
+        // In challenge mode, all valid words are added to the path.
         state.solution.path.push(...selection.pathIndexes)
-        if (selection.isSecretWord) {
-          move.push(Grid.Match.Exact)
-        }
         break
       }
-      case Grid.Modes.Default: {
-        // In default mode, spelled words are only added to the path if they match the next secret word.
-        if (selection.isSecretWord && arrayEquals(selection.revealedIndexes, selection.pathIndexes)) {
-          // The user spelled the next secret word.
+      case Grid.Modes.Pathfinder: {
+        // In pathfinding mode, valid words are only added to the path if they match the next secret word.
+        if (selection.isNextSecretWord) {
           state.solution.path.push(...selection.pathIndexes)
-          move.push(Grid.Match.Exact)
         } else if (selection.hintIndexes.length) {
-          // Add hints to any portion of the next secret word that were in the spelled word.
+          // Add hints to any portion of the next secret word that were revealed by the valid word.
           state.solution.hints.push(...selection.hintIndexes)
-          move.push(Grid.Match.Partial)
         }
         break
       }
       default:
         throw new Error(`Unsupported mode: ${this.#configuration.mode}.`)
     }
-
-    // Update moves
-    state.solution.moves.push(move.join(':'))
 
     this.#setState(state)
     this.#update(selection.updateIndexes)
@@ -706,7 +706,7 @@ export class Grid {
 
   static getMode () {
     const mode = Grid.Params.Mode.get()
-    return Object.values(Grid.Modes).includes(mode) ? mode : Grid.Modes.Default
+    return Object.values(Grid.Modes).includes(mode) ? mode : Grid.DefaultMode
   }
 
   static getRemainingPath (state) {
@@ -742,11 +742,6 @@ export class Grid {
     return Grid.Widths.includes(width) ? width : Grid.DefaultWidth
   }
 
-  static Modes = Object.freeze({
-    Default: 'default',
-    Challenge: 'challenge'
-  })
-
   static Name = 'grid'
   static ClassNames = Object.freeze({ Loading: getClassName(Grid.Name, 'loading') })
   static DateRegex = /^\d{4}-\d{2}-\d{2}$/
@@ -759,7 +754,6 @@ export class Grid {
     return `${year}-${month}-${day}`
   })()
 
-  static DefaultWidth = 5
   static Events = Object.freeze({
     Selection: getClassName(Grid.Name, 'selection'),
     Update: getClassName(Grid.Name, 'update')
@@ -767,13 +761,13 @@ export class Grid {
 
   static Match = Object.freeze({
     Exact: 'exact',
+    None: 'none',
     Partial: 'partial'
   })
 
-  static Moves = Object.freeze({
-    Hint: 'hint',
-    Spell: 'spell',
-    Swap: 'swap'
+  static Modes = Object.freeze({
+    Challenge: 'challenge',
+    Pathfinder: 'pathfinder'
   })
 
   static Params = Object.freeze({
@@ -793,6 +787,9 @@ export class Grid {
 
   static Today = Date.parse(Grid.DefaultId)
   static Widths = Object.freeze([5, 7, 9])
+
+  static DefaultMode = Grid.Modes.Pathfinder
+  static DefaultWidth = Grid.Widths[0]
 
   static SelectionStart = class {
     event
@@ -852,12 +849,66 @@ export class Grid {
     }
   }
 
+  static Move = class {
+    symbol
+    type
+    value
+
+    constructor (type, symbol, value) {
+      this.type = type
+      this.symbol = symbol
+      this.value = value
+    }
+
+    static fromObject (obj) {
+      return new Grid.Move(obj.type, obj.symbol, obj.value)
+    }
+
+    static hint (index) {
+      return new Grid.Move(Grid.Move.Types.Hint, Grid.Move.Symbols.LightBulb, index)
+    }
+
+    static spell (mode, index, match) {
+      let symbol = Grid.Move.Symbols.CircleGreen
+      if (mode === Grid.Modes.Challenge && match === Grid.Match.Exact) {
+        symbol = Grid.Move.Symbols.CircleYellow
+      } else if (mode === Grid.Modes.Pathfinder) {
+        if (match === Grid.Match.Partial) {
+          symbol = Grid.Move.Symbols.CircleYellow
+        } else if (match === Grid.Match.None) {
+          symbol = Grid.Move.Symbols.MagnifyingGlass
+        }
+      }
+      return new Grid.Move(Grid.Move.Types.Spell, symbol, { index, match })
+    }
+
+    static swap (index) {
+      return new Grid.Move(Grid.Move.Types.Swap, Grid.Move.Symbols.CirclePurple, index)
+    }
+
+    static Types = Object.freeze({
+      Hint: 'hint',
+      Spell: 'spell',
+      Swap: 'swap'
+    })
+
+    static Symbols = Object.freeze({
+      CircleGreen: '🟢',
+      CirclePurple: '🟣',
+      CircleYellow: '🟡',
+      LightBulb: '💡',
+      MagnifyingGlass: '🔍'
+    })
+  }
+
   static Selection = class {
     cells
     content
     hintIndexes
+    isNextSecretWord
     isSecretWord
     isValidWord
+    match
     pathIndexes
     revealedIndexes
     updateIndexes
@@ -882,6 +933,11 @@ export class Grid {
       this.revealedIndexes = revealedIndexes ?? []
       this.hintIndexes = hintIndexes ?? []
       this.updateIndexes = updateIndexes ?? []
+
+      this.isNextSecretWord = this.isSecretWord && arrayEquals(this.revealedIndexes, this.pathIndexes)
+      this.match = this.isSecretWord
+        ? Grid.Match.Exact
+        : (this.hintIndexes.length ? Grid.Match.Partial : Grid.Match.None)
     }
   }
 
@@ -889,34 +945,41 @@ export class Grid {
     configuration
     solution
     user
+    version
 
-    constructor (configuration, solution, user) {
+    constructor (configuration, solution, user, version) {
       this.configuration = configuration
       this.solution = solution
       this.user = user
+      this.version = version ?? 0
     }
 
     static fromObject (obj) {
       return new Grid.State(
         optionally(obj.configuration, Grid.State.Configuration.fromObject),
         optionally(obj.solution, Grid.State.Solution.fromObject),
-        optionally(obj.user, Grid.State.User.fromObject)
+        optionally(obj.user, Grid.State.User.fromObject),
+        obj.version
       )
     }
+
+    static Version = 1
 
     static Configuration = class {
       cells
       path
+      wordIndexes
       words
 
-      constructor (cells, path, words) {
+      constructor (cells, path, words, wordIndexes) {
         this.cells = cells
         this.path = path
         this.words = words
+        this.wordIndexes = wordIndexes
       }
 
       static fromObject (obj) {
-        return new Grid.State.Configuration(obj.cells, obj.path, obj.words)
+        return new Grid.State.Configuration(obj.cells, obj.path, obj.words, obj.wordIndexes)
       }
     }
 
@@ -940,7 +1003,15 @@ export class Grid {
       }
 
       static fromObject (obj) {
-        return new Grid.State.Solution(obj.hash, obj.path, obj.moves, obj.hints, obj.swaps, obj.words, obj.sources)
+        return new Grid.State.Solution(
+          obj.hash,
+          obj.path,
+          optionally(obj.moves, (moves) => moves.map((obj) => Grid.Move.fromObject(obj))),
+          obj.hints,
+          obj.swaps,
+          obj.words,
+          obj.sources
+        )
       }
     }
 
@@ -976,7 +1047,7 @@ export class Grid {
     wordCount
 
     constructor (configuration, state, words) {
-      const { mode, size } = configuration
+      const { size } = configuration
       const { length, points } = words.reduce(
         (acc, word) => ({ length: acc.length + word.content.length, points: acc.points + word.points }),
         { length: 0, points: 0 }
@@ -988,46 +1059,11 @@ export class Grid {
       this.averageWordLength = length === 0 ? 0 : (length / words.length).toPrecision(2)
       this.best = state.user.highScore
       this.bestDiff = diff === 0 ? '=' : (diff < 0 ? diff : `+${diff}`)
-      this.moves = state.solution.moves.map((move) => {
-        const parts = move.split(':')
-        const type = parts[0]
-        const match = parts[2]
-
-        let symbol
-        switch (type) {
-          case Grid.Moves.Hint: {
-            symbol = '💡'
-            break
-          }
-          case Grid.Moves.Spell: {
-            // TODO Probably a better way to do this
-            if (mode === Grid.Modes.Default) {
-              if (match === Grid.Match.Exact) {
-                symbol = '🟢'
-              } else if (match === Grid.Match.Partial) {
-                symbol = '🟡'
-              } else {
-                symbol = '🔴'
-              }
-            } else if (match === Grid.Match.Exact) {
-              symbol = '🟡'
-            } else {
-              symbol = '🟢'
-            }
-            break
-          }
-          case Grid.Moves.Swap: {
-            symbol = '🟣'
-            break
-          }
-        }
-        return symbol
-      })
+      this.moves = state.solution.moves
       this.progress = Math.trunc((state.solution.path.length / size) * 100)
       this.score = score
       this.secretWordCount = state.configuration.words.length
-      this.secretWordsGuessed = state.configuration.words
-        .filter((indexes) => indexes.every((index) => state.solution.path.includes(index))).length
+      this.secretWordsGuessed = words.filter((word) => state.configuration.words.includes(word.content)).length
       this.swapCount = state.solution.swaps.length
       this.wordCount = words.length
     }

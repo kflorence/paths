@@ -40,7 +40,8 @@ dialog a:visited {
   color: #B4ADEA;
 }
 
-dialog details {
+dialog details,
+dialog h2 {
   background-color: white;
   border-bottom: 1px solid #A7A9A4;
   border-top: 1px solid #A7A9A4;
@@ -91,8 +92,8 @@ dialog .buttons {
   margin-bottom: 1em;
 }
 
+dialog details h2,
 dialog details h3,
-dialog details h4,
 dialog details p {
   margin-left: 0;
   margin-right: 0;
@@ -100,17 +101,10 @@ dialog details p {
   padding-right: 0;
 }
 
-dialog h1 {
+dialog h2 {
+  font-size: 1.1rem;
   margin: 0;
-  padding: 0;
-}
-
-dialog h3 {
-  padding: 0.25rem 1rem;
-}
-
-dialog h4 {
-  padding: 0 1rem;
+  padding: 1rem;
 }
 
 dialog header {
@@ -623,40 +617,29 @@ p.center {
   display: inline-block;
 }
 
-.grid-mode-challenge .match-exact,
-.grid-mode-challenge .valid.match-exact {
-  color: #FFED65;
-}
-
 .grid-mode-challenge #status::before {
   content: 'Score:';
 }
 
 .grid-mode-challenge #hint,
-.grid-mode-default .points,
-.grid-mode-default #reset,
-.grid-mode-default #statistics,
-.grid-mode-default #swaps,
-.grid-mode-default #undo {
+.grid-mode-pathfinder .points,
+.grid-mode-pathfinder #reset,
+.grid-mode-pathfinder #statistics,
+.grid-mode-pathfinder #swaps,
+.grid-mode-pathfinder #undo {
   display: none;
 }
 
-.grid-mode-default .valid,
-.grid-mode-default .word {
-  color: #DF3B57;
-}
-
-.grid-mode-default .match-partial,
-.grid-mode-default .valid.match-partial {
+.grid-mode-challenge .match-exact,
+.grid-mode-pathfinder .match-partial {
   color: #FFED65;
 }
 
-.grid-mode-default .match-exact,
-.grid-mode-default .valid.match-exact {
+.grid-mode-pathfinder .match-exact {
   color: #59FFA0;
 }
 
-.grid-mode-default #status::before {
+.grid-mode-pathfinder #status::before {
   content: 'Words:';
 }
 

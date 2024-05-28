@@ -54,18 +54,7 @@ export class Game {
     this.#grid = new Grid(this.#dictionary, width, mode)
     this.#configuration = this.#grid.getConfiguration()
 
-    const url = getBaseUrl()
-    url.searchParams.set(Grid.Params.Id.key, crypto.randomUUID().split('-')[0])
-
-    if (mode !== Grid.Modes.Default) {
-      url.searchParams.set(Grid.Params.Mode.key, mode)
-    }
-
-    if (width !== Grid.DefaultWidth) {
-      url.searchParams.set(Grid.Params.Width.key, width)
-    }
-
-    $new.href = url.toString()
+    $new.href = `?${Grid.Params.Id.key}=${crypto.randomUUID().split('-')[0]}`
     $path.href = `?${Grid.Params.Id.key}=${this.#configuration.id}`
     $path.textContent = this.#configuration.id
 
@@ -129,7 +118,7 @@ export class Game {
 
     url.searchParams.set(Grid.Params.Id.key, id)
 
-    if (mode !== Grid.Modes.Default) {
+    if (mode !== Grid.DefaultMode) {
       url.searchParams.set(Grid.Params.Mode.key, mode)
     }
 
@@ -150,7 +139,7 @@ export class Game {
     let moves = ''
     const lastMovesIndex = statistics.moves.length - 1
     statistics.moves.forEach((move, index) => {
-      moves += move
+      moves += move.symbol
       if (index !== lastMovesIndex && (index + 1) % width === 0) {
         moves += '\n'
       }
@@ -195,11 +184,11 @@ export class Game {
   }
 
   #getMode () {
-    return this.#state.get(Grid.Params.Mode.key) ?? Grid.getMode()
+    return Grid.Params.Mode.get() ?? this.#state.get(Grid.Params.Mode.key) ?? Grid.DefaultMode
   }
 
   #getWidth () {
-    return optionally(this.#state.get(Grid.Params.Width.key), Number) ?? Grid.getWidth()
+    return Grid.Params.Width.get() ?? optionally(this.#state.get(Grid.Params.Width.key), Number) ?? Grid.DefaultWidth
   }
 
   #onExpand () {
@@ -281,7 +270,9 @@ export class Game {
     $selection.replaceChildren()
     $selection.classList.remove(Game.ClassNames.Valid)
 
+    // Ignore cells marked for swap
     if (!selection.cells.filter((cell) => !cell.getFlags().has(Cell.Flags.Swap)).length) {
+      // Nothing to do
       return
     }
 
@@ -289,26 +280,14 @@ export class Game {
     $content.textContent = selection.content
     $content.classList.toggle(Game.ClassNames.Valid, selection.isValidWord)
 
-    if (selection.isSecretWord) {
-      $content.classList.add(Game.ClassNames.MatchExact)
-    }
-
     const children = [$content]
-    if (selection.isValidWord) {
-      if (this.#configuration.mode === Grid.Modes.Challenge) {
-        const configuration = this.#grid.getConfiguration()
-        const word = new Word(
-          configuration.width,
-          selection.cells,
-          selection.isSecretWord ? Grid.Match.Exact : undefined
-        )
-        const $points = document.createElement('span')
-        $points.classList.add(Game.ClassNames.Points)
-        $points.textContent = word.points
-        children.push($points)
-      } else if (selection.hintIndexes.length) {
-        $content.classList.add(Game.ClassNames.MatchPartial)
-      }
+    if (selection.isValidWord && this.#configuration.mode === Grid.Modes.Challenge) {
+      const configuration = this.#grid.getConfiguration()
+      const word = new Word(configuration.width, selection.cells, selection.match)
+      const $points = document.createElement('span')
+      $points.classList.add(Game.ClassNames.Points)
+      $points.textContent = word.points
+      children.push($points)
     }
 
     $selection.replaceChildren(...children)
@@ -338,6 +317,7 @@ export class Game {
 
   #updateSwaps () {
     const swaps = this.#grid.getSwaps()
+    // noinspection JSCheckFunctionSignatures
     $swaps.replaceChildren(...swaps.map((swap, index) => {
       const $swap = document.createElement('span')
       $swap.classList.add(Game.ClassNames.Swap)
@@ -347,7 +327,7 @@ export class Game {
   }
 
   #updateUndo () {
-    const moves = this.#grid.getMoves().filter((move) => !move.startsWith(Grid.Moves.Hint))
+    const moves = this.#grid.getMoves().filter((move) => move.type !== Grid.Move.Types.Hint)
     const selection = this.#grid.getSelection()
     const disabled = moves.length === 0 && selection.length === 0
     $undo.classList.toggle(Game.ClassNames.Disabled, disabled)
@@ -392,7 +372,7 @@ export class Game {
       const $points = document.createElement('span')
       $points.classList.add(Game.ClassNames.Points)
       $points.textContent = word.points
-      return this.#configuration.mode === Grid.Modes.Default
+      return this.#configuration.mode === Grid.DefaultMode
         ? Game.getListItem([$index, $word])
         : Game.getListItem([$index, $word, $points], Game.getDeleteElement(index))
     }))

@@ -63,30 +63,137 @@
         <a class="button" href="https://buymeacoffee.com/kflorence" id="support" target="_blank" title="Support the project">Give Support</a>
       </p>
       <p>
-        <em>Paths</em> is a free, open source, browser-based daily word puzzle game where you create a non-overlapping
-        path through a grid of letters by spelling words. The goal is to achieve the highest score possible.
+        <em>Paths</em> is a free, open source, browser-based daily word puzzle game where the central concept is the
+        creation of a non-overlapping path through a grid of letters by spelling words. Each path is generated randomly
+        with an algorithm that ensures the grid can be completely filled.
+      </p>
+      <h2>How To Play</h2>
+      <p>
+        Using the generated grid of letters, your goal is to create a non-overlapping "path" through the grid by
+        spelling words. Words can be spelled forwards or backwards. For example, "BELL" or "LLEB". Each word must start
+        or end on a letter adjacent to the last letter of the previous word (as displayed on the grid).
+      </p>
+      <p>
+        Letters can be selected by either tapping on them one-by-one or by pressing and then sliding across several
+        letters. When selecting one-by-one, the selection can be submitted by re-tapping the final selected letter.
+        When pressing and sliding across several letters, the selection will be submitted automatically when you stop
+        pressing.
+      </p>
+      <p>
+        As you play, you may find it helpful to expand the drawer beneath the grid by tapping on the arrow
+        (<span class="material-symbols-outlined">expand_more</span>). This is where you can get more detailed
+        information on your progress as well as where you can adjust game settings.
+      </p>
+      <p>
+        <em>Paths</em> has two game modes. By default, you will be playing in <em>Pathfinder</em> mode. You can change
+        the game mode in the game settings section of the drawer.
       </p>
       <details>
-        <summary>How To Play</summary>
+        <summary>Pathfinder Mode (Default)</summary>
         <p>
-          Using the generated grid of letters, your goal is to create a non-overlapping "path" through the grid by
-          spelling words. Words can be spelled forwards or backwards. For example, "BELL" or "LLEB". Each word must start
-          or end on a letter adjacent to the last letter of the previous word (as displayed on the grid).
+          <em>Pathfinder</em> is the default game mode. In this mode, the goal is to figure out the path used to
+          generate the grid by spelling out each word that forms the path. If one of the words you spell contains a
+          section of the path, that section of the path will be revealed on the grid by highlighting each matching cell.
         </p>
         <p>
-          Letters can be selected by either tapping on them one-by-one or by pressing and then sliding across several
-          letters. When selecting one-by-one, the selection can be submitted by re-tapping the final selected letter.
-          When pressing and sliding across several letters, the selection will be submitted automatically when you stop
-          pressing.
+          For example, if the path word was "SUPERB" and you spelled "SUPER", it would highlight the five matching
+          cells:
         </p>
+        <div class="flex-center">
+          <div class="example grid" data-width="3">
+            <div class="cell cell-hint">
+              <div class="background"><span class="content">s</span></div>
+            </div>
+            <div class="cell cell-hint">
+              <div class="background"><span class="content">p</span></div>
+            </div>
+            <div class="cell cell-hint">
+              <div class="background"><span class="content">e</span></div>
+            </div>
+            <div class="cell cell-hint">
+              <div class="background"><span class="content">u</span></div>
+            </div>
+            <div class="cell cell-hint">
+              <div class="background"><span class="content">r</span></div>
+            </div>
+            <div class="cell">
+              <div class="background"><span class="content">a</span></div>
+            </div>
+            <div class="cell">
+              <div class="background"><span class="content">b</span></div>
+            </div>
+            <div class="cell">
+              <div class="background"><span class="content">l</span></div>
+            </div>
+            <div class="cell">
+              <div class="background"><span class="content">e</span></div>
+            </div>
+          </div>
+        </div>
         <p>
-          Letters can be swapped by tapping twice on a single letter, and then tapping on another letter to complete the
-          swap. A single letter can only be swapped once. Swapped letters are not considered when calculating the score,
-          so they should be used as sparingly as possible.
+          Keep in mind that the highlighting will stop as soon as the word you spell deviates from the path. For
+          example, if you were to spell "SUB" instead of "SUPER", it would only highlight two cells, even though the
+          "B" is used later in the path:
+        </p>
+        <div class="flex-center">
+          <div class="example grid" data-width="3">
+            <div class="cell cell-hint">
+              <div class="background"><span class="content">s</span></div>
+            </div>
+            <div class="cell">
+              <div class="background"><span class="content">p</span></div>
+            </div>
+            <div class="cell">
+              <div class="background"><span class="content">e</span></div>
+            </div>
+            <div class="cell cell-hint">
+              <div class="background"><span class="content">u</span></div>
+            </div>
+            <div class="cell">
+              <div class="background"><span class="content">r</span></div>
+            </div>
+            <div class="cell">
+              <div class="background"><span class="content">a</span></div>
+            </div>
+            <div class="cell">
+              <div class="background"><span class="content">b</span></div>
+            </div>
+            <div class="cell">
+              <div class="background"><span class="content">l</span></div>
+            </div>
+            <div class="cell">
+              <div class="background"><span class="content">e</span></div>
+            </div>
+          </div>
+        </div>
+        <p>
+          If you get stuck, you can tap the hint (<span class="material-symbols-outlined">help</span>) button, which
+          will highlight the next letter on the path. In the example above, it would highlight the "P" cell.
         </p>
       </details>
       <details>
-        <summary>Scoring</summary>
+        <summary>Challenge Mode</summary>
+        <p>
+          In <em>Challenge</em> mode, the goal is to try to get the highest score possible. While the grid is still
+          generated in a way that ensures it can be fully filled, it may require swapping one or more letters in order
+          to do so. Unlike in <em>Pathfinder</em> mode, there is no one set path, and there are no hints. You can create
+          whatever path through the grid you like.
+        </p>
+        <h3>Secret Words</h3>
+        <p>
+          The words used to generate the grid are referred to in this mode as "secret" words. If you happen to spell one
+          of these words, it will show up as a highlighted word in the list of spelled words and count towards the
+          "Secret Words Found" statistic. If the path of the word on the grid is the same as the path used during grid
+          generation, the word will also be highlighted on the grid itself, denoting that the placement of that word on
+          the grid is optimal.
+        </p>
+        <h3>Swapping Letters</h3>
+        <p>
+          Letters can be swapped by tapping twice on a single letter, and then tapping on another letter to complete the
+          swap. Swapped letters will have a purple background color. A single letter can only be swapped once. Swapped
+          letters are excluded when calculating the score for a word, unless that word happens to be a "secret" word.
+        </p>
+        <h3>Scoring</h3>
         <p>
           A word will be scored after it is validated. To be considered valid, a word must be at least three letters long
           and must be contained in the <a href="https://github.com/kflorence/word-list" target="_blank">dictionary</a>.
@@ -127,6 +234,10 @@
                   <li>Multiplier: <code>(3 - 1) / 2 = 1</code></li>
                   <li>Result: <code>4 * 1 = 4</code></li>
                 </ul>
+                <p>
+                  Note that if this word had been a "secret" word, it would have been worth <strong>5 points</strong>,
+                  since the swapped middle <em>E</em> would be included in the score.
+                </p>
               </div>
               <div class="flex-right">
                 <div class="example grid" data-width="3">
