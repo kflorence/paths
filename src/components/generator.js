@@ -51,7 +51,7 @@ export class Generator {
     this.wordBoundaries = Generator.getWordBoundaries(this.words)
 
     this.#steps = new Array(configuration.size)
-    this.#restartThreshold = configuration.size * 2
+    this.#restartThreshold = configuration.size * Math.floor(configuration.width / 2)
   }
 
   /**
