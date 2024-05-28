@@ -876,7 +876,7 @@ export class Grid {
         if (match === Grid.Match.Partial) {
           symbol = Grid.Move.Symbols.CircleYellow
         } else if (match === Grid.Match.None) {
-          symbol = Grid.Move.Symbols.MagnifyingGlass
+          symbol = Grid.Move.Symbols.CircleWhite
         }
       }
       return new Grid.Move(Grid.Move.Types.Spell, symbol, { index, match })
@@ -895,9 +895,9 @@ export class Grid {
     static Symbols = Object.freeze({
       CircleGreen: '🟢',
       CirclePurple: '🟣',
+      CircleWhite: '⚪️',
       CircleYellow: '🟡',
-      LightBulb: '💡',
-      MagnifyingGlass: '🔍'
+      LightBulb: '💡'
     })
   }
 
