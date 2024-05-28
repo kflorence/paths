@@ -1,5 +1,6 @@
 import { lettersByCharacter } from './letter'
 import { Cell } from './cell'
+import { Grid } from './grid'
 
 export class Word {
   content
@@ -14,8 +15,8 @@ export class Word {
       const character = cell.getContent()
       content.push(character)
       const letter = lettersByCharacter[character]
-      if (!cell.getFlags().has(Cell.Flags.Swapped)) {
-        // Points are only scored for letters that are not swapped
+      if (!cell.getFlags().has(Cell.Flags.Swapped) || match === Grid.Match.Exact) {
+        // Points are only scored for letters that are not swapped, unless the word exactly matches a secret word.
         pointScoringLetters.push(letter)
       }
       this.indexes.push(cell.getIndex())

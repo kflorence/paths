@@ -164,7 +164,9 @@ export class Game {
     }
 
     content.push(url.toString())
-    console.log(content)
+
+    console.debug(content)
+
     await writeToClipboard(content.join('\n'))
     tippy.show()
     setTimeout(() => tippy.hide(), 1000)
@@ -295,7 +297,11 @@ export class Game {
     if (selection.isValidWord) {
       if (this.#configuration.mode === Grid.Modes.Challenge) {
         const configuration = this.#grid.getConfiguration()
-        const word = new Word(configuration.width, selection.cells)
+        const word = new Word(
+          configuration.width,
+          selection.cells,
+          selection.isSecretWord ? Grid.Match.Exact : undefined
+        )
         const $points = document.createElement('span')
         $points.classList.add(Game.ClassNames.Points)
         $points.textContent = word.points

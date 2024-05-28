@@ -507,6 +507,7 @@ p.center {
   align-items: center;
   background-color: #9da19c;
   border-radius: 50%;
+  box-sizing: border-box;
   display: flex;
   height: 100%;
   justify-content: center;
@@ -516,6 +517,7 @@ p.center {
 .grid .cell .content {
   align-items: center;
   border-radius: 50%;
+  box-sizing: border-box;
   display: flex;
   font-size: 2em;
   height: 80%;
@@ -525,8 +527,12 @@ p.center {
   z-index: 2;
 }
 
+.grid .cell-last .background {
+  border: 2px dashed rgba(0, 0, 0, 0.15);
+}
+
 .grid .cell-active .background {
-  background-color: color-mix(in oklab, #9da19c 90%, #000);
+  border: 2px solid rgba(0, 0, 0, 0.15);
 }
 
 .grid .cell-path::after {
@@ -597,10 +603,6 @@ p.center {
   background-color: #FFED65;
 }
 
-.grid .cell-active.cell-hint .background {
-  background-color: color-mix(in oklab, #FFED65 90%, #000);
-}
-
 .grid .cell-selected::after,
 .grid .cell-selected .content {
   background-color: #FDFFF7;
@@ -610,10 +612,6 @@ p.center {
 .grid .cell-swap .content,
 .grid .cell-swapped .background {
   background-color: #B4ADEA;
-}
-
-.grid .cell-active.cell-swapped .background {
-  background-color: color-mix(in oklab, #B4ADEA 90%, #000);
 }
 
 .grid .cell-path.cell-word-end::after {
