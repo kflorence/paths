@@ -171,7 +171,7 @@ export class Grid {
     }
 
     state.solution.hints.push(index)
-    state.solution.moves.push(Grid.Move.hint(index))
+    state.solution.moves.push(new Grid.Move(Grid.Move.Types.Hint, index))
 
     this.#setState(state)
     this.#update([index])
@@ -534,7 +534,7 @@ export class Grid {
     state.solution.swaps.push(swap)
 
     // Update moves
-    state.solution.moves.push(Grid.Move.swap(state.solution.swaps.length - 1))
+    state.solution.moves.push(new Grid.Move(Grid.Move.Types.Swap, state.solution.swaps.length - 1))
 
     this.#setState(state)
     this.#update(swap)
@@ -664,7 +664,8 @@ export class Grid {
 
     // Update moves
     const index = state.solution.words.length - 1
-    state.solution.moves.push(Grid.Move.spell(this.#configuration.mode, index, selection.match))
+    const match = selection.match
+    state.solution.moves.push(new Grid.Move(Grid.Move.Types.Spell, { index, match }))
 
     // Update path
     switch (this.#configuration.mode) {
@@ -850,40 +851,44 @@ export class Grid {
   }
 
   static Move = class {
-    symbol
     type
     value
 
-    constructor (type, symbol, value) {
+    constructor (type, value) {
       this.type = type
-      this.symbol = symbol
       this.value = value
     }
 
-    static fromObject (obj) {
-      return new Grid.Move(obj.type, obj.symbol, obj.value)
-    }
+    getSymbol (mode) {
+      let symbol
 
-    static hint (index) {
-      return new Grid.Move(Grid.Move.Types.Hint, Grid.Move.Symbols.LightBulb, index)
-    }
-
-    static spell (mode, index, match) {
-      let symbol = Grid.Move.Symbols.CircleGreen
-      if (mode === Grid.Modes.Challenge && match === Grid.Match.Exact) {
-        symbol = Grid.Move.Symbols.CircleYellow
-      } else if (mode === Grid.Modes.Pathfinder) {
-        if (match === Grid.Match.Partial) {
-          symbol = Grid.Move.Symbols.CircleYellow
-        } else if (match === Grid.Match.None) {
-          symbol = Grid.Move.Symbols.CircleWhite
+      switch (this.type) {
+        case Grid.Move.Types.Hint:
+          symbol = Grid.Move.Symbols.LightBulb
+          break
+        case Grid.Move.Types.Spell: {
+          symbol = Grid.Move.Symbols.CircleGreen
+          if (mode === Grid.Modes.Challenge && this.value.match === Grid.Match.Exact) {
+            symbol = Grid.Move.Symbols.CircleYellow
+          } else if (mode === Grid.Modes.Pathfinder) {
+            if (this.value.match === Grid.Match.Partial) {
+              symbol = Grid.Move.Symbols.CircleYellow
+            } else if (this.value.match === Grid.Match.None) {
+              symbol = Grid.Move.Symbols.CircleWhite
+            }
+          }
+          break
         }
+        case Grid.Move.Types.Swap:
+          symbol = Grid.Move.Symbols.CirclePurple
+          break
       }
-      return new Grid.Move(Grid.Move.Types.Spell, symbol, { index, match })
+
+      return symbol
     }
 
-    static swap (index) {
-      return new Grid.Move(Grid.Move.Types.Swap, Grid.Move.Symbols.CirclePurple, index)
+    static fromObject (obj) {
+      return new Grid.Move(obj.type, obj.value)
     }
 
     static Types = Object.freeze({
@@ -895,7 +900,7 @@ export class Grid {
     static Symbols = Object.freeze({
       CircleGreen: '🟢',
       CirclePurple: '🟣',
-      CircleWhite: '⚪️',
+      CircleWhite: '⚪',
       CircleYellow: '🟡',
       LightBulb: '💡'
     })

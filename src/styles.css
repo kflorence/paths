@@ -639,6 +639,10 @@ p.center {
   color: #59FFA0;
 }
 
+.grid-mode-pathfinder .match-none {
+  color: white;
+}
+
 .grid-mode-pathfinder #status::before {
   content: 'Words:';
 }

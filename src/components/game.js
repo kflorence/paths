@@ -139,7 +139,7 @@ export class Game {
     let moves = ''
     const lastMovesIndex = statistics.moves.length - 1
     statistics.moves.forEach((move, index) => {
-      moves += move.symbol
+      moves += move.getSymbol(mode)
       if (index !== lastMovesIndex && (index + 1) % width === 0) {
         moves += '\n'
       }
@@ -365,9 +365,7 @@ export class Game {
       const $index = document.createElement('span')
       $index.textContent = `${index + 1}.`
       const $word = document.createElement('span')
-      $word.classList.add(Game.ClassNames.Word)
-      $word.classList.toggle(Game.ClassNames.MatchExact, word.match === Grid.Match.Exact)
-      $word.classList.toggle(Game.ClassNames.MatchPartial, word.match === Grid.Match.Partial)
+      $word.classList.add(Game.ClassNames.Word, `match-${word.match}`)
       $word.textContent = word.content
       const $points = document.createElement('span')
       $points.classList.add(Game.ClassNames.Points)
@@ -418,8 +416,6 @@ export class Game {
     FlexLeft: 'flex-left',
     FlexRight: 'flex-right',
     Icon: 'material-symbols-outlined',
-    MatchExact: 'match-exact',
-    MatchPartial: 'match-partial',
     Points: 'points',
     Swap: 'swap',
     Valid: 'valid',
