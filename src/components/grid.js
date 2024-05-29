@@ -5,6 +5,7 @@ import { EventListeners } from './eventListeners'
 import { Word } from './word'
 import { Flags } from './flag'
 import {
+  arrayEquals,
   arrayIncludes,
   cyrb53,
   getClassName,
@@ -117,8 +118,9 @@ export class Grid {
     const secretWordIndexes = Grid.getNextSecretWordIndexes(state)
     const revealedIndexes = secretWordIndexes.filter((index) => wordIndexes.includes(index))
     const hintIndexes = revealedIndexes.filter((index) => !state.solution.hints.includes(index))
-    const secretWordIndex = state.configuration.words.findIndex((word) => word === content)
-    const isSecretWord = secretWordIndex >= 0
+    const isSecretWord = state.configuration.words.find((word) => content === word) &&
+      // Consider the words as matching if they use the same indexes, regardless of order, to spell the same word
+      arrayEquals(secretWordIndexes, wordIndexes, sortNumerically)
     const updateIndexes = lastPathCell ? pathIndexes.concat([lastPathCell.getIndex()]) : pathIndexes
 
     if (this.#configuration.mode === Grid.Modes.Pathfinder) {
@@ -741,6 +743,11 @@ export class Grid {
     return cells.map((cell) => cell.getContent()).join('')
   }
 
+  /**
+   * Get the indexes of the given cells.
+   * @param cells
+   * @returns {number[]}
+   */
   static getIndexes (cells) {
     return cells.map((cell) => cell.getIndex())
   }
@@ -755,6 +762,11 @@ export class Grid {
     return Object.values(Grid.Modes).includes(mode) ? mode : Grid.DefaultMode
   }
 
+  /**
+   * Get the indexes for the next secret word.
+   * @param state The grid state.
+   * @returns {number[]}
+   */
   static getNextSecretWordIndexes (state) {
     const remainingPathIndexes = Grid.getRemainingPathIndexes(state)
     return remainingPathIndexes.length ? Grid.getSecretWordIndexes(state, remainingPathIndexes[0]) : []
