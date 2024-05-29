@@ -188,7 +188,8 @@ export class Game {
   }
 
   #getWidth () {
-    return Grid.Params.Width.get() ?? optionally(this.#state.get(Grid.Params.Width.key), Number) ?? Grid.DefaultWidth
+    return optionally(Grid.Params.Width.get() ?? this.#state.get(Grid.Params.Width.key), Number)
+      ?? Grid.DefaultWidth
   }
 
   #onExpand () {
