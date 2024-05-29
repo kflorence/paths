@@ -95,15 +95,18 @@ export class Grid {
     }
 
     let content = Grid.getContent(cells)
-    let isValid = this.#dictionary.isValid(content)
-    if (!isValid) {
-      // Try the selection in reverse
-      const contentReversed = reverseString(content)
-      isValid = this.#dictionary.isValid(contentReversed)
-      if (isValid) {
-        // The word was spelled backwards
-        cells.reverse()
-        content = contentReversed
+    let isValid = false
+    if (pathIndexes.length) {
+      isValid = this.#dictionary.isValid(content)
+      if (!isValid) {
+        // Try the selection in reverse
+        const contentReversed = reverseString(content)
+        isValid = this.#dictionary.isValid(contentReversed)
+        if (isValid) {
+          // The word was spelled backwards
+          cells.reverse()
+          content = contentReversed
+        }
       }
     }
 
