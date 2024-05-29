@@ -182,8 +182,7 @@ export class Grid {
   }
 
   #getNextHint (state) {
-    const remainingPath = Grid.getRemainingPathIndexes(state)
-    return remainingPath.find((index) => !state.solution.hints.includes(index))
+    return Grid.getNextSecretWordIndexes(state).find((index) => !state.solution.hints.includes(index))
   }
 
   removeSwap (index) {
@@ -714,19 +713,22 @@ export class Grid {
     return Object.values(Grid.Modes).includes(mode) ? mode : Grid.DefaultMode
   }
 
+  static getNextSecretWordIndexes (state) {
+    const remainingPathIndexes = Grid.getRemainingPathIndexes(state)
+    if (!remainingPathIndexes.length) {
+      return []
+    }
+    const nextPathIndex = remainingPathIndexes[0]
+    return state.configuration.wordIndexes.find((indexes) => indexes.includes(nextPathIndex))
+  }
+
   static getRemainingPathIndexes (state) {
     return state.configuration.path
       .slice(state.configuration.path.indexOf(state.solution.path[state.solution.path.length - 1]) + 1)
   }
 
   static getRevealedIndexes (state, wordIndexes) {
-    const remainingPathIndexes = Grid.getRemainingPathIndexes(state)
-    if (!remainingPathIndexes.length) {
-      return []
-    }
-    const nextPathIndex = remainingPathIndexes[0]
-    const nextWordIndexes = state.configuration.wordIndexes.find((indexes) => indexes.includes(nextPathIndex))
-    return nextWordIndexes.filter((index) => wordIndexes.includes(index))
+    return Grid.getNextSecretWordIndexes(state).filter((index) => wordIndexes.includes(index))
   }
 
   static getSolution (hash) {
