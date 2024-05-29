@@ -622,7 +622,6 @@ p.center {
 }
 
 .grid-mode-challenge #hint,
-.grid-mode-pathfinder .points,
 .grid-mode-pathfinder #reset,
 .grid-mode-pathfinder #statistics,
 .grid-mode-pathfinder #swaps,
@@ -765,8 +764,12 @@ p.center {
   text-decoration: none;
 }
 
-.points {
+.grid-mode-challenge .points {
   color: #FFED65;
+}
+
+.grid-mode-pathfinder .points {
+  color: white;
 }
 
 .points::before {

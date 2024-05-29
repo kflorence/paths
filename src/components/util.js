@@ -8,6 +8,18 @@ const navigator = window.navigator
 export const url = new URL(location)
 export const urlParams = url.searchParams
 
+export function arrayEquals (a, b, sort) {
+  if (typeof sort === 'function') {
+    a = a.toSorted(sort)
+    b = b.toSorted(sort)
+  }
+  return a.length === b.length && a.every((value, index) => b[index] === value)
+}
+
+export function arrayIncludes (a, b, sort) {
+  return a.some((v) => arrayEquals(v, b, sort))
+}
+
 /**
  * cyrb53 (c) 2018 bryc (github.com/bryc)
  * License: Public domain. Attribution appreciated.
@@ -51,6 +63,17 @@ export function getIndexesUnique (rand, array, max) {
   return picked
 }
 
+export function getSign (num) {
+  const sign = Math.sign(num)
+  if (sign === 0) {
+    return '='
+  } else if (sign > 0) {
+    return '+'
+  } else {
+    return '-'
+  }
+}
+
 export function base64decode (string) {
   const binString = window.atob(base64unescape(string))
   // noinspection JSCheckFunctionSignatures
@@ -69,14 +92,6 @@ function base64escape (string) {
 function base64unescape (string) {
   return (string + '==='.slice((string.length + 3) % 4))
     .replace(/-/g, '+').replace(/_/g, '/')
-}
-
-export function arrayEquals (a, b) {
-  return a.length === b.length && a.every((value, index) => b[index] === value)
-}
-
-export function arrayIncludes (a, b) {
-  return a.some((v) => arrayEquals(v, b))
 }
 
 export function optionally (value, func) {
@@ -104,6 +119,10 @@ export function shuffle (rand, array) {
     array[j] = temp
   }
   return array
+}
+
+export function sortNumerically (a, b) {
+  return Number(a) - Number(b)
 }
 
 /**

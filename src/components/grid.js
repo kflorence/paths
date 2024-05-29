@@ -5,12 +5,11 @@ import { EventListeners } from './eventListeners'
 import { Word } from './word'
 import { Flags } from './flag'
 import {
-  arrayEquals,
   arrayIncludes,
   cyrb53,
   getClassName,
   history,
-  optionally, reverseString,
+  optionally, reverseString, sortNumerically,
   url,
   urlParams
 } from './util'
@@ -39,12 +38,7 @@ export class Grid {
 
     // Don't persist changes locally if a solution is provided in the URL
     const persistence = sharedSolution === undefined
-    const initialState = new Grid.State(
-      undefined,
-      sharedSolution ?? new Grid.State.Solution(this.#configuration.hash),
-      new Grid.State.User(),
-      Grid.State.Version
-    )
+    const initialState = new Grid.State(undefined, sharedSolution, new Grid.State.User(), Grid.State.Version)
 
     this.#state = new State(this.#configuration.hash, initialState, { persistence })
 
@@ -69,6 +63,14 @@ export class Grid {
 
   getMoves () {
     return this.getState().solution.moves
+  }
+
+  getNextSecretWordIndexes (state) {
+    return Grid.getNextSecretWordIndexes(state ?? this.getState())
+  }
+
+  getSecretWordIndexes (index, state) {
+    return Grid.getSecretWordIndexes(state ?? this.getState(), index)
   }
 
   getSelection () {
@@ -111,17 +113,41 @@ export class Grid {
     }
 
     const state = this.getState()
-    const revealedIndexes = Grid.getRevealedIndexes(state, pathIndexes)
+    const wordIndexes = Grid.getIndexes(cells)
+    const secretWordIndexes = Grid.getNextSecretWordIndexes(state)
+    const revealedIndexes = secretWordIndexes.filter((index) => wordIndexes.includes(index))
+    const hintIndexes = revealedIndexes.filter((index) => !state.solution.hints.includes(index))
+    const secretWordIndex = state.configuration.words.findIndex((word) => word === content)
+    const isSecretWord = secretWordIndex >= 0
+    const updateIndexes = lastPathCell ? pathIndexes.concat([lastPathCell.getIndex()]) : pathIndexes
+
+    if (this.#configuration.mode === Grid.Modes.Pathfinder) {
+      const secretWordHintIndexes = secretWordIndexes.filter((index) => state.solution.hints.includes(index))
+      isValid = isValid &&
+        // Don't accept the same guess
+        !arrayIncludes(state.solution.words, wordIndexes) &&
+        // The new guess must contain every previously revealed cell
+        secretWordHintIndexes.every((index) => wordIndexes.includes(index))
+      if (isValid && isSecretWord && !state.solution.path.length) {
+        // Ensure the first secret word spelled is anchored correctly within the path
+        const lastPathIndex = pathIndexes.length - 1
+        const lastSecretWordIndex = secretWordIndexes.length - 1
+        if (pathIndexes[lastPathIndex] !== secretWordIndexes[lastSecretWordIndex]) {
+          pathIndexes.reverse()
+        }
+      }
+    }
 
     return new Grid.Selection(
       cells,
       content,
       pathIndexes,
-      state.configuration.words.includes(content),
-      isValid,
-      revealedIndexes,
-      revealedIndexes.filter((index) => !state.solution.hints.includes(index)),
-      lastPathCell ? pathIndexes.concat([lastPathCell.getIndex()]) : pathIndexes
+      hintIndexes,
+      updateIndexes,
+      wordIndexes,
+      secretWordIndexes,
+      isSecretWord,
+      isValid
     )
   }
 
@@ -173,7 +199,7 @@ export class Grid {
 
     const state = this.getState()
     const index = this.#getNextHint(state)
-    if (!index) {
+    if (index === undefined) {
       return
     }
 
@@ -185,7 +211,7 @@ export class Grid {
   }
 
   #getNextHint (state) {
-    return Grid.getNextSecretWordIndexes(state).find((index) => !state.solution.hints.includes(index))
+    return this.getNextSecretWordIndexes(state).find((index) => !state.solution.hints.includes(index))
   }
 
   removeSwap (index) {
@@ -241,7 +267,7 @@ export class Grid {
   }
 
   reset () {
-    this.#state.update((state) => { state.solution = new Grid.State.Solution(this.#configuration.hash) })
+    this.#resetSolution()
     this.#update(Grid.getIndexes(this.#cells))
   }
 
@@ -252,6 +278,11 @@ export class Grid {
       const generator = new Generator(this.#configuration, this.#dictionary)
       configuration = generator.generate()
       this.#state.set(Grid.State.Keys.Configuration, configuration)
+    }
+
+    const solution = this.#state.get(Grid.State.Keys.Solution)
+    if (!solution) {
+      this.#resetSolution()
     }
 
     this.#cells = configuration.cells.map((state) =>
@@ -526,6 +557,14 @@ export class Grid {
     }
   }
 
+  #resetSolution () {
+    this.#state.update((state) => {
+      const hash = this.#configuration.hash
+      const hints = this.#configuration.mode === Grid.Modes.Pathfinder ? [state.configuration.path[0]] : []
+      state.solution = Grid.State.Solution.fromObject({ hash, hints })
+    })
+  }
+
   #setState (state) {
     this.#state.set(state)
     if (urlParams.has(Grid.Params.Solution.key)) {
@@ -621,8 +660,8 @@ export class Grid {
           const wordIndexes = (isReversed ? Array.from(word).reverse() : word)
           const wordIndex = wordIndexes.indexOf(index)
 
-          if (arrayIncludes(state.configuration.wordIndexes, wordIndexes)) {
-            // The user has spelled a secret word.
+          if (arrayIncludes(state.configuration.wordIndexes, wordIndexes, sortNumerically)) {
+            // The user has spelled a secret word using the optimal path.
             flags.add(Cell.Flags.Revealed)
           }
 
@@ -681,8 +720,8 @@ export class Grid {
         break
       }
       case Grid.Modes.Pathfinder: {
-        // In pathfinding mode, valid words are only added to the path if they match the next secret word.
-        if (selection.isNextSecretWord) {
+        // In pathfinding mode, only secret words can be added to the path.
+        if (selection.isSecretWord) {
           state.solution.path.push(...selection.pathIndexes)
         } else if (selection.hintIndexes.length) {
           // Add hints to any portion of the next secret word that were revealed by the valid word.
@@ -718,11 +757,7 @@ export class Grid {
 
   static getNextSecretWordIndexes (state) {
     const remainingPathIndexes = Grid.getRemainingPathIndexes(state)
-    if (!remainingPathIndexes.length) {
-      return []
-    }
-    const nextPathIndex = remainingPathIndexes[0]
-    return state.configuration.wordIndexes.find((indexes) => indexes.includes(nextPathIndex))
+    return remainingPathIndexes.length ? Grid.getSecretWordIndexes(state, remainingPathIndexes[0]) : []
   }
 
   static getRemainingPathIndexes (state) {
@@ -730,8 +765,8 @@ export class Grid {
       .slice(state.configuration.path.indexOf(state.solution.path[state.solution.path.length - 1]) + 1)
   }
 
-  static getRevealedIndexes (state, wordIndexes) {
-    return Grid.getNextSecretWordIndexes(state).filter((index) => wordIndexes.includes(index))
+  static getSecretWordIndexes (state, index) {
+    return state.configuration.wordIndexes.find((indexes) => indexes.includes(index)) ?? []
   }
 
   static getSolution (hash) {
@@ -913,12 +948,11 @@ export class Grid {
     cells
     content
     hintIndexes
-    isNextSecretWord
     isSecretWord
     isValidWord
     match
     pathIndexes
-    revealedIndexes
+    secretWordIndexes
     updateIndexes
     wordIndexes
 
@@ -926,23 +960,23 @@ export class Grid {
       cells,
       content,
       pathIndexes,
-      isSecretWord,
-      isValidWord,
-      revealedIndexes,
       hintIndexes,
-      updateIndexes
+      updateIndexes,
+      wordIndexes,
+      secretWordIndexes,
+      isSecretWord,
+      isValidWord
     ) {
       this.cells = cells
       this.content = content
       this.pathIndexes = pathIndexes ?? []
-      this.wordIndexes = Grid.getIndexes(cells) ?? []
-      this.isSecretWord = isSecretWord ?? false
-      this.isValidWord = isValidWord ?? false
-      this.revealedIndexes = revealedIndexes ?? []
       this.hintIndexes = hintIndexes ?? []
       this.updateIndexes = updateIndexes ?? []
+      this.wordIndexes = wordIndexes ?? []
+      this.secretWordIndexes = secretWordIndexes ?? []
+      this.isSecretWord = isSecretWord ?? false
+      this.isValidWord = isValidWord ?? false
 
-      this.isNextSecretWord = this.isSecretWord && arrayEquals(this.revealedIndexes, this.pathIndexes)
       this.match = this.isSecretWord
         ? Grid.Match.Exact
         : (this.hintIndexes.length ? Grid.Match.Partial : Grid.Match.None)

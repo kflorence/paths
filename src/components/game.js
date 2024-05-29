@@ -3,7 +3,7 @@ import { EventListeners } from './eventListeners'
 import Tippy from 'tippy.js'
 import 'tippy.js/dist/tippy.css'
 import { State } from './state'
-import { getBaseUrl, optionally, reload, urlParams, writeToClipboard } from './util'
+import { getBaseUrl, getSign, optionally, reload, urlParams, writeToClipboard } from './util'
 import { Cell } from './cell'
 import { Cache } from './cache'
 import { Dictionary } from './dictionary'
@@ -360,19 +360,24 @@ export class Game {
   }
 
   #updateWords () {
-    const words = this.#grid.getWords()
+    const state = this.#grid.getState()
+    const words = this.#grid.getWords(state).reverse()
+    const length = words.length
+    const isPathfinderMode = this.#configuration.mode === Grid.Modes.Pathfinder
     $words.replaceChildren(...words.map((word, index) => {
       const $index = document.createElement('span')
-      $index.textContent = `${index + 1}.`
+      $index.textContent = `${length - index}.`
       const $word = document.createElement('span')
       $word.classList.add(Game.ClassNames.Word, `match-${word.match}`)
       $word.textContent = word.content
       const $points = document.createElement('span')
       $points.classList.add(Game.ClassNames.Points)
-      $points.textContent = word.points
-      return this.#configuration.mode === Grid.DefaultMode
-        ? Game.getListItem([$index, $word])
-        : Game.getListItem([$index, $word, $points], Game.getDeleteElement(index))
+      const secretWordIndexes = this.#grid.getSecretWordIndexes(word.indexes[0], state)
+      $points.textContent = isPathfinderMode
+        ? getSign(secretWordIndexes.length - word.content.length)
+        : word.points
+      const $delete = isPathfinderMode ? undefined : Game.getDeleteElement(index)
+      return Game.getListItem([$index, $word, $points], $delete)
     }))
   }
 
