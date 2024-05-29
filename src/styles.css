@@ -522,11 +522,11 @@ p.center {
 }
 
 .grid .cell-last .background {
-  border: 2px dashed rgba(0, 0, 0, 0.15);
+  border: 2px dashed #666;
 }
 
 .grid .cell-active .background {
-  border: 2px solid rgba(0, 0, 0, 0.15);
+  border: 2px solid #999;
 }
 
 .grid .cell-path::after {

@@ -73,6 +73,10 @@ export class Grid {
 
   getSelection () {
     const cells = Array.from(this.#selection)
+    if (!cells.length) {
+      return new Grid.Selection(cells)
+    }
+
     const pathIndexes = Grid.getIndexes(cells)
     const lastPathCell = this.#getLastPathCell()
     if (lastPathCell) {
@@ -178,7 +182,7 @@ export class Grid {
   }
 
   #getNextHint (state) {
-    const remainingPath = Grid.getRemainingPath(state)
+    const remainingPath = Grid.getRemainingPathIndexes(state)
     return remainingPath.find((index) => !state.solution.hints.includes(index))
   }
 
@@ -710,25 +714,19 @@ export class Grid {
     return Object.values(Grid.Modes).includes(mode) ? mode : Grid.DefaultMode
   }
 
-  static getRemainingPath (state) {
+  static getRemainingPathIndexes (state) {
     return state.configuration.path
       .slice(state.configuration.path.indexOf(state.solution.path[state.solution.path.length - 1]) + 1)
   }
 
   static getRevealedIndexes (state, wordIndexes) {
-    const remainingPath = Grid.getRemainingPath(state)
-    const revealedIndexes = []
-    const lastWordIndex = wordIndexes.length - 1
-    for (let i = 0; i < remainingPath.length; i++) {
-      const index = remainingPath[i]
-      // Check going forwards or backwards
-      if ([wordIndexes[i], wordIndexes[lastWordIndex - i]].includes(index)) {
-        revealedIndexes.push(index)
-      } else {
-        break
-      }
+    const remainingPathIndexes = Grid.getRemainingPathIndexes(state)
+    if (!remainingPathIndexes.length) {
+      return []
     }
-    return revealedIndexes
+    const nextPathIndex = remainingPathIndexes[0]
+    const nextWordIndexes = state.configuration.wordIndexes.find((indexes) => indexes.includes(nextPathIndex))
+    return nextWordIndexes.filter((index) => wordIndexes.includes(index))
   }
 
   static getSolution (hash) {
@@ -1068,7 +1066,8 @@ export class Grid {
       this.progress = Math.trunc((state.solution.path.length / size) * 100)
       this.score = score
       this.secretWordCount = state.configuration.words.length
-      this.secretWordsGuessed = words.filter((word) => state.configuration.words.includes(word.content)).length
+      this.secretWordsGuessed = state.configuration.words
+        .filter((content) => words.some((word) => word.content === content)).length
       this.swapCount = state.solution.swaps.length
       this.wordCount = words.length
     }
