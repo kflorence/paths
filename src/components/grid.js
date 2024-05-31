@@ -66,14 +66,6 @@ export class Grid {
     return this.getState().solution.moves
   }
 
-  getNextSecretWordIndexes (state) {
-    return Grid.getNextSecretWordIndexes(state ?? this.getState())
-  }
-
-  getSecretWordIndexes (index, state) {
-    return Grid.getSecretWordIndexes(state ?? this.getState(), index)
-  }
-
   getSelection () {
     const cells = Array.from(this.#selection)
     if (!cells.length) {
@@ -115,23 +107,27 @@ export class Grid {
 
     const state = this.getState()
     const wordIndexes = Grid.getIndexes(cells)
-    const secretWordIndexes = Grid.getNextSecretWordIndexes(state)
+    const secretWordIndex = state.getSecretWordIndex()
+    const secretWordIndexes = state.configuration.wordIndexes[secretWordIndex] ?? []
     const revealedIndexes = secretWordIndexes.filter((index) => wordIndexes.includes(index))
     const hintIndexes = revealedIndexes.filter((index) => !state.solution.hints.includes(index))
-    const isSecretWord = state.configuration.words.find((word) => content === word) &&
-      // Consider the words as matching if they use the same indexes, regardless of order, to spell the same word
+
+    // Consider the spelled word a secret word if it is valid, the content matches that of the current secret word,
+    // and the same path indexes are used to create the word, regardless of order.
+    const isSecretWord = (
+      isValid &&
+      state.configuration.words[secretWordIndex] === content &&
       arrayEquals(secretWordIndexes, wordIndexes, sortNumerically)
+    )
     const updateIndexes = lastPathCell ? pathIndexes.concat([lastPathCell.getIndex()]) : pathIndexes
 
-    if (this.#configuration.mode === Grid.Modes.Pathfinder) {
-      const secretWordHintIndexes = secretWordIndexes.filter((index) => state.solution.hints.includes(index))
-      isValid = isValid &&
-        // Don't accept the same guess
-        !arrayIncludes(state.solution.words, wordIndexes) &&
-        // The new guess must contain every previously revealed cell
-        secretWordHintIndexes.every((index) => wordIndexes.includes(index))
-      if (isValid && isSecretWord && !state.solution.path.length) {
-        // Ensure the first secret word spelled is anchored correctly within the path
+    if (isValid && this.#configuration.mode === Grid.Modes.Pathfinder) {
+      const allSecretWordHintIndexesUsed = secretWordIndexes
+        .every((index) => !state.solution.hints.includes(index) || wordIndexes.includes(index))
+      // Reject duplicate submissions (by index) and words where not all previous hint indexes have been used
+      isValid = !arrayIncludes(state.solution.words, wordIndexes) && allSecretWordHintIndexesUsed
+      if (isValid && isSecretWord) {
+        // Ensure accepted secret words are properly anchored in the path
         const lastPathIndex = pathIndexes.length - 1
         const lastSecretWordIndex = secretWordIndexes.length - 1
         if (pathIndexes[lastPathIndex] !== secretWordIndexes[lastSecretWordIndex]) {
@@ -147,14 +143,11 @@ export class Grid {
       hintIndexes,
       updateIndexes,
       wordIndexes,
+      secretWordIndex,
       secretWordIndexes,
       isSecretWord,
       isValid
     )
-  }
-
-  getSources () {
-    return Array.from(new Set([Dictionary.Names.Default].concat(this.getState().solution.sources))).sort()
   }
 
   getState () {
@@ -184,7 +177,7 @@ export class Grid {
       return new Word(
         this.#configuration.width,
         word.map((index) => this.#cells[index]),
-        move.value.match
+        move
       )
     })
   }
@@ -213,7 +206,8 @@ export class Grid {
   }
 
   #getNextHint (state) {
-    return this.getNextSecretWordIndexes(state).find((index) => !state.solution.hints.includes(index))
+    return state.configuration.wordIndexes[state.getSecretWordIndex()]?.find((index) =>
+      !state.solution.hints.includes(index))
   }
 
   removeSwap (index) {
@@ -712,7 +706,8 @@ export class Grid {
     // Update moves
     const index = state.solution.words.length - 1
     const match = selection.match
-    state.solution.moves.push(new Grid.Move(Grid.Move.Types.Spell, { index, match }))
+    const secretWordIndex = selection.secretWordIndex
+    state.solution.moves.push(new Grid.Move(Grid.Move.Types.Spell, { index, match, secretWordIndex }))
 
     // Update path
     switch (this.#configuration.mode) {
@@ -760,25 +755,6 @@ export class Grid {
   static getMode () {
     const mode = Grid.Params.Mode.get()
     return Object.values(Grid.Modes).includes(mode) ? mode : Grid.DefaultMode
-  }
-
-  /**
-   * Get the indexes for the next secret word.
-   * @param state The grid state.
-   * @returns {number[]}
-   */
-  static getNextSecretWordIndexes (state) {
-    const remainingPathIndexes = Grid.getRemainingPathIndexes(state)
-    return remainingPathIndexes.length ? Grid.getSecretWordIndexes(state, remainingPathIndexes[0]) : []
-  }
-
-  static getRemainingPathIndexes (state) {
-    return state.configuration.path
-      .slice(state.configuration.path.indexOf(state.solution.path[state.solution.path.length - 1]) + 1)
-  }
-
-  static getSecretWordIndexes (state, index) {
-    return state.configuration.wordIndexes.find((indexes) => indexes.includes(index)) ?? []
   }
 
   static getSolution (hash) {
@@ -964,6 +940,7 @@ export class Grid {
     isValidWord
     match
     pathIndexes
+    secretWordIndex
     secretWordIndexes
     updateIndexes
     wordIndexes
@@ -975,6 +952,7 @@ export class Grid {
       hintIndexes,
       updateIndexes,
       wordIndexes,
+      secretWordIndex,
       secretWordIndexes,
       isSecretWord,
       isValidWord
@@ -985,7 +963,8 @@ export class Grid {
       this.hintIndexes = hintIndexes ?? []
       this.updateIndexes = updateIndexes ?? []
       this.wordIndexes = wordIndexes ?? []
-      this.secretWordIndexes = secretWordIndexes ?? []
+      this.secretWordIndex = secretWordIndex ?? -1
+      this.secretWordIndexes = secretWordIndexes
       this.isSecretWord = isSecretWord ?? false
       this.isValidWord = isValidWord ?? false
 
@@ -1008,6 +987,20 @@ export class Grid {
       this.version = version ?? 0
     }
 
+    getRemainingPathIndexes () {
+      return this.configuration.path.slice(this.solution.path.length)
+    }
+
+    getSecretWordIndex (cellIndex) {
+      // Use the index of the next cell in the configured path by default
+      cellIndex ??= this.configuration.path[this.solution.path.length]
+      return this.configuration.wordIndexes.findIndex((indexes) => indexes.includes(cellIndex))
+    }
+
+    getSources () {
+      return Array.from(new Set([Dictionary.Names.Default].concat(this.solution.sources))).sort()
+    }
+
     static fromObject (obj) {
       return new Grid.State(
         optionally(obj.configuration, Grid.State.Configuration.fromObject),
@@ -1017,7 +1010,7 @@ export class Grid {
       )
     }
 
-    static Version = 1
+    static Version = 2
 
     static Configuration = class {
       cells

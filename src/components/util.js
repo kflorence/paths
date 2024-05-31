@@ -68,9 +68,9 @@ export function getSign (num) {
   if (sign === 0) {
     return '='
   } else if (sign > 0) {
-    return '+'
+    return '>'
   } else {
-    return '-'
+    return '<'
   }
 }
 

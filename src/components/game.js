@@ -3,7 +3,7 @@ import { EventListeners } from './eventListeners'
 import Tippy from 'tippy.js'
 import 'tippy.js/dist/tippy.css'
 import { State } from './state'
-import { getBaseUrl, getSign, optionally, reload, urlParams, writeToClipboard } from './util'
+import { getBaseUrl, getClassName, getSign, optionally, reload, urlParams, writeToClipboard } from './util'
 import { Cell } from './cell'
 import { Cache } from './cache'
 import { Dictionary } from './dictionary'
@@ -102,7 +102,7 @@ export class Game {
       // User has the dictionary enabled
       state.includeProfanityInDictionary ||
       // User has validated profane words, or loaded a share URL with profane words in it
-      this.#grid.getSources().includes(Dictionary.Names.Profanity)
+      this.#grid.getState().getSources().includes(Dictionary.Names.Profanity)
     ) {
       // Profane words can be validated, but they won't be used to generate the grid
       await this.#dictionary.load(Dictionary.Sources.Profanity)
@@ -113,8 +113,9 @@ export class Game {
     const { id, mode, width } = this.#configuration
     const size = `${width}x${width}`
     const state = this.#state.get()
+    const gridState = this.#grid.getState()
     const url = getBaseUrl()
-    const statistics = this.#grid.getStatistics()
+    const statistics = this.#grid.getStatistics(gridState)
 
     url.searchParams.set(Grid.Params.Id.key, id)
 
@@ -127,7 +128,7 @@ export class Game {
     }
 
     if (state.includeStateInShareUrl) {
-      url.searchParams.set(Grid.Params.Solution.key, Grid.Params.Solution.encode(this.#grid.getState().solution))
+      url.searchParams.set(Grid.Params.Solution.key, Grid.Params.Solution.encode(gridState.solution))
     }
 
     const content = [`Path#${id} | ${size} | ${statistics.secretWordsGuessed}/${statistics.secretWordCount}`]
@@ -147,7 +148,7 @@ export class Game {
 
     content.push(moves)
 
-    const sources = this.#grid.getSources()
+    const sources = gridState.getSources()
     if (sources.length > 1) {
       content.push(`Dictionary: ${sources.join(' + ')}`)
     }
@@ -188,8 +189,8 @@ export class Game {
   }
 
   #getWidth () {
-    return optionally(Grid.Params.Width.get() ?? this.#state.get(Grid.Params.Width.key), Number)
-      ?? Grid.DefaultWidth
+    return optionally(Grid.Params.Width.get() ?? this.#state.get(Grid.Params.Width.key), Number) ??
+      Grid.DefaultWidth
   }
 
   #onExpand () {
@@ -269,7 +270,7 @@ export class Game {
 
     const selection = this.#grid.getSelection()
     $selection.replaceChildren()
-    $selection.classList.remove(Game.ClassNames.Valid)
+    $selection.classList.remove(Game.ClassNames.WordValid)
 
     // Ignore cells marked for swap
     if (!selection.cells.filter((cell) => !cell.getFlags().has(Cell.Flags.Swap)).length) {
@@ -279,16 +280,23 @@ export class Game {
 
     const $content = document.createElement('span')
     $content.textContent = selection.content
-    $content.classList.toggle(Game.ClassNames.Valid, selection.isValidWord)
+    $content.classList.toggle(Game.ClassNames.WordValid, selection.isValidWord)
 
     const children = [$content]
-    if (selection.isValidWord && this.#configuration.mode === Grid.Modes.Challenge) {
-      const configuration = this.#grid.getConfiguration()
-      const word = new Word(configuration.width, selection.cells, selection.match)
-      const $points = document.createElement('span')
-      $points.classList.add(Game.ClassNames.Points)
-      $points.textContent = word.points
-      children.push($points)
+    if (selection.isValidWord) {
+      const $info = document.createElement('span')
+      $info.classList.add(Game.ClassNames.WordInfo)
+
+      if (this.#configuration.mode === Grid.Modes.Pathfinder) {
+        $info.textContent = getSign(selection.secretWordIndexes.length - selection.content.length)
+      } else {
+        const configuration = this.#grid.getConfiguration()
+        const move = new Grid.Move(Grid.Move.Types.Spell, { match: selection.match })
+        const word = new Word(configuration.width, selection.cells, move)
+        $info.textContent = word.points
+      }
+
+      children.push($info)
     }
 
     $selection.replaceChildren(...children)
@@ -366,19 +374,19 @@ export class Game {
     const length = words.length
     const isPathfinderMode = this.#configuration.mode === Grid.Modes.Pathfinder
     $words.replaceChildren(...words.map((word, index) => {
+      const data = word.move.value
       const $index = document.createElement('span')
       $index.textContent = `${length - index}.`
       const $word = document.createElement('span')
-      $word.classList.add(Game.ClassNames.Word, `match-${word.match}`)
+      $word.classList.add(Game.ClassNames.Word, getClassName(Game.ClassNames.Word, 'match', data.match))
       $word.textContent = word.content
-      const $points = document.createElement('span')
-      $points.classList.add(Game.ClassNames.Points)
-      const secretWordIndexes = this.#grid.getSecretWordIndexes(word.indexes[0], state)
-      $points.textContent = isPathfinderMode
-        ? getSign(secretWordIndexes.length - word.content.length)
+      const $info = document.createElement('span')
+      $info.classList.add(Game.ClassNames.WordInfo)
+      $info.textContent = isPathfinderMode
+        ? getSign(state.configuration.words[data.secretWordIndex].length - word.content.length)
         : word.points
       const $delete = isPathfinderMode ? undefined : Game.getDeleteElement(index)
-      return Game.getListItem([$index, $word, $points], $delete)
+      return Game.getListItem([$index, $word, $info], $delete)
     }))
   }
 
@@ -422,10 +430,10 @@ export class Game {
     FlexLeft: 'flex-left',
     FlexRight: 'flex-right',
     Icon: 'material-symbols-outlined',
-    Points: 'points',
     Swap: 'swap',
-    Valid: 'valid',
-    Word: 'word'
+    Word: 'word',
+    WordInfo: 'word-info',
+    WordValid: 'word-valid'
   })
 
   static Params = Object.freeze({

@@ -629,16 +629,17 @@ p.center {
   display: none;
 }
 
-.grid-mode-challenge .match-exact,
-.grid-mode-pathfinder .match-partial {
+.grid-mode-challenge .word-info,
+.grid-mode-challenge .word-match-exact,
+.grid-mode-pathfinder .word-match-partial {
   color: #FFED65;
 }
 
-.grid-mode-pathfinder .match-exact {
+.grid-mode-pathfinder .word-match-exact {
   color: #59FFA0;
 }
 
-.grid-mode-pathfinder .match-none {
+.grid-mode-pathfinder .word-match-none {
   color: white;
 }
 
@@ -764,24 +765,6 @@ p.center {
   text-decoration: none;
 }
 
-.grid-mode-challenge .points {
-  color: #FFED65;
-}
-
-.grid-mode-pathfinder .points {
-  color: white;
-}
-
-.points::before {
-  color: #9da19c;
-  content: '('
-}
-
-.points::after {
-  color: #9da19c;
-  content: ')'
-}
-
 .selection {
   background: #50514F;
   border-radius: 16px;
@@ -813,7 +796,21 @@ p.center {
   padding: 0.5em 1em;
 }
 
-.valid {
+.word-info {
+  color: white;
+}
+
+.word-info::before {
+  color: #9da19c;
+  content: '('
+}
+
+.word-info::after {
+  color: #9da19c;
+  content: ')'
+}
+
+.word-valid {
   color: #59FFA0;
 }
 
