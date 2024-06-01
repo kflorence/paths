@@ -124,8 +124,14 @@ export class Grid {
     if (isValid && this.#configuration.mode === Grid.Modes.Pathfinder) {
       const allSecretWordHintIndexesUsed = secretWordIndexes
         .every((index) => !state.solution.hints.includes(index) || wordIndexes.includes(index))
-      // Reject duplicate submissions (by index) and words where not all previous hint indexes have been used
-      isValid = !arrayIncludes(state.solution.words, wordIndexes) && allSecretWordHintIndexesUsed
+      const previouslyGuessedWordsByIndex = state.solution.moves
+        .filter((move) => move.type === Grid.Move.Types.Spell && move.value.secretWordIndex === secretWordIndex)
+        .map((move) => move.value.index)
+      const previouslyGuessedWordIndexes = state.solution.words
+        .filter((word, index) => previouslyGuessedWordsByIndex.includes(index))
+      // Reject words where not all previous hint indexes have been used and duplicate guesses (by path index) for the
+      // same secret word.
+      isValid = allSecretWordHintIndexesUsed && !arrayIncludes(previouslyGuessedWordIndexes, wordIndexes)
       if (isValid && isSecretWord) {
         // Ensure accepted secret words are properly anchored in the path
         const lastPathIndex = pathIndexes.length - 1
