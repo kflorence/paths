@@ -178,4 +178,8 @@ export class Dictionary {
       'https://raw.githubusercontent.com/kflorence/word-list/main/words-profanity.txt?v=1'
     )
   })
+
+  static SourcesByName = Object.freeze(
+    Object.fromEntries(
+      Object.entries(Dictionary.Names).map(([key, name]) => [name, Dictionary.Sources[key]])))
 }

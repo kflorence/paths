@@ -3,7 +3,7 @@ import { EventListeners } from './eventListeners'
 import Tippy from 'tippy.js'
 import 'tippy.js/dist/tippy.css'
 import { State } from './state'
-import { getBaseUrl, getClassName, getSign, optionally, reload, urlParams, writeToClipboard } from './util'
+import { getBaseUrl, getClassName, getSign, optionally, reload, url, urlParams, writeToClipboard } from './util'
 import { Cell } from './cell'
 import { Cache } from './cache'
 import { Dictionary } from './dictionary'
@@ -12,8 +12,8 @@ import { Word } from './word'
 const $expand = document.getElementById('expand')
 const $footer = document.getElementById('footer')
 const $hint = document.getElementById('hint')
-const $includeState = document.getElementById('include-state')
 const $includeProfanity = document.getElementById('include-profanity')
+const $includeSolution = document.getElementById('include-solution')
 const $mode = document.getElementById('mode')
 const $new = document.getElementById('new')
 const $path = document.getElementById('path')
@@ -31,10 +31,6 @@ const confirm = window.confirm
 const crypto = window.crypto
 const tippy = Tippy($share, { content: 'Copied!', theme: 'custom', trigger: 'manual' })
 
-if (urlParams.has(Grid.Params.Solution.key)) {
-  document.body.classList.add('share')
-}
-
 export class Game {
   #configuration
   #dictionary
@@ -43,8 +39,15 @@ export class Game {
   #state
 
   constructor () {
-    const overrides = [Game.Params.Expand]
-    this.#state = new State('game', {}, { overrides })
+    const overrides = [Game.Params.DrawerExpanded]
+    const initialState = Game.State.fromObject({ version: Game.State.Version })
+    this.#state = new State(Game.CacheKey, initialState, { overrides })
+
+    const state = this.#getState()
+    if (state.version < Game.State.Version) {
+      console.warn(`Ignoring stale cache with version ${state.version}. Current version: ${Game.State.Version}`)
+      this.#state.set(initialState)
+    }
 
     this.#dictionary = new Dictionary()
 
@@ -54,13 +57,16 @@ export class Game {
     this.#grid = new Grid(this.#dictionary, width, mode)
     this.#configuration = this.#grid.getConfiguration()
 
-    $new.href = `?${Grid.Params.Id.key}=${crypto.randomUUID().split('-')[0]}`
+    const params = new URLSearchParams(url.search)
+    params.set(Grid.Params.Id.key, crypto.randomUUID().split('-')[0])
+
+    $new.href = `?${params.toString()}`
     $path.href = `?${Grid.Params.Id.key}=${this.#configuration.id}`
     $path.textContent = this.#configuration.id
 
     this.#eventListeners.add([
       { type: 'change', element: $includeProfanity, handler: this.#onIncludeProfanityChange },
-      { type: 'change', element: $includeState, handler: this.#onIncludeStateChange },
+      { type: 'change', element: $includeSolution, handler: this.#onIncludeSolutionChange },
       { type: 'change', element: $mode, handler: this.#onModeChange },
       { type: 'change', element: $width, handler: this.#onWidthChange },
       { type: 'click', element: $expand, handler: this.#onExpand },
@@ -96,40 +102,26 @@ export class Game {
     this.#grid.setup()
     this.update()
 
-    // TODO make dictionary loading more generic
-    const state = this.#state.get()
-    if (
-      // User has the dictionary enabled
-      state.includeProfanityInDictionary ||
-      // User has validated profane words, or loaded a share URL with profane words in it
-      this.#grid.getState().getSources().includes(Dictionary.Names.Profanity)
-    ) {
-      // Profane words can be validated, but they won't be used to generate the grid
-      await this.#dictionary.load(Dictionary.Sources.Profanity)
+    const state = this.#getState()
+
+    // Note that additional dictionary sources are not used to generate the grid. They are only used for validation.
+    const additionalSources = Array.from(new Set(
+      this.#grid.getState().getSources()
+        .filter((source) => source !== Dictionary.Names.Default)
+        .concat(state.additionalSources)
+    ))
+
+    for await (const source of additionalSources) {
+      await this.#dictionary.load(Dictionary.SourcesByName[source])
     }
   }
 
   async share () {
     const { id, mode, width } = this.#configuration
     const size = `${width}x${width}`
-    const state = this.#state.get()
+    const gameState = this.#getState()
     const gridState = this.#grid.getState()
-    const url = getBaseUrl()
     const statistics = this.#grid.getStatistics(gridState)
-
-    url.searchParams.set(Grid.Params.Id.key, id)
-
-    if (mode !== Grid.DefaultMode) {
-      url.searchParams.set(Grid.Params.Mode.key, mode)
-    }
-
-    if (width !== Grid.DefaultWidth) {
-      url.searchParams.set(Grid.Params.Width.key, width)
-    }
-
-    if (state.includeStateInShareUrl) {
-      url.searchParams.set(Grid.Params.Solution.key, Grid.Params.Solution.encode(gridState.solution))
-    }
 
     const content = [`Path#${id} | ${size} | ${statistics.secretWordsGuessed}/${statistics.secretWordCount}`]
 
@@ -146,14 +138,16 @@ export class Game {
       }
     })
 
-    content.push(moves)
+    if (moves) {
+      content.push(moves)
+    }
 
     const sources = gridState.getSources()
     if (sources.length > 1) {
       content.push(`Dictionary: ${sources.join(' + ')}`)
     }
 
-    content.push(url.toString())
+    content.push(gameState.shareUrl.get(gridState, this.#configuration))
 
     console.debug(content)
 
@@ -185,16 +179,19 @@ export class Game {
   }
 
   #getMode () {
-    return Grid.Params.Mode.get() ?? this.#state.get(Grid.Params.Mode.key) ?? Grid.DefaultMode
+    return Grid.Params.Mode.get() ?? Grid.DefaultMode
+  }
+
+  #getState () {
+    return Game.State.fromObject(this.#state.get())
   }
 
   #getWidth () {
-    return optionally(Grid.Params.Width.get() ?? this.#state.get(Grid.Params.Width.key), Number) ??
-      Grid.DefaultWidth
+    return optionally(Grid.Params.Width.get(), Number) ?? Grid.DefaultWidth
   }
 
   #onExpand () {
-    this.#state.set(Game.Params.Expand.key, !this.#state.get(Game.Params.Expand.key))
+    this.#state.set(Game.Params.DrawerExpanded.key, !this.#state.get(Game.Params.DrawerExpanded.key))
     this.#updateDrawer()
   }
 
@@ -208,19 +205,21 @@ export class Game {
   }
 
   async #onIncludeProfanityChange (event) {
-    const state = this.#state.get()
-    state.includeProfanityInDictionary = event.target.checked
-    if (state.includeProfanityInDictionary) {
+    const state = this.#getState()
+    if (event.target.checked) {
+      state.additionalSources = Array.from(new Set(state.additionalSources.concat([Dictionary.Names.Profanity])))
       await this.#dictionary.load(Dictionary.Sources.Profanity)
     } else {
+      const index = state.additionalSources.findIndex((source) => source === Dictionary.Names.Profanity)
+      state.additionalSources.splice(index, 1)
       this.#dictionary.unload(Dictionary.Names.Profanity)
     }
     this.#state.set(state)
   }
 
-  #onIncludeStateChange (event) {
-    const state = this.#state.get()
-    state.includeStateInShareUrl = event.target.checked
+  #onIncludeSolutionChange (event) {
+    const state = this.#getState()
+    state.shareUrl = state.shareUrl.copy({ solution: event.target.checked })
     this.#state.set(state)
   }
 
@@ -231,34 +230,21 @@ export class Game {
   }
 
   #onModeChange (event) {
-    const mode = event.target.value
-    const state = this.#state.get()
-    state.mode = mode
-    this.#state.set(state)
-
-    Grid.Params.Mode.set(mode)
-
+    Grid.Params.Mode.set(event.target.value)
     reload()
   }
 
   #onWidthChange (event) {
-    const width = Number(event.target.value)
-    const state = this.#state.get()
-    state.width = width
-    this.#state.set(state)
-
-    Grid.Params.Width.set(width)
-
+    Grid.Params.Width.set(event.target.value)
     reload()
   }
 
   #updateDrawer () {
-    const state = this.#state.get()
-    const expanded = state.expand === true
-    $footer.classList.toggle(Game.ClassNames.Expanded, expanded)
-    $expand.textContent = expanded ? 'expand_less' : 'expand_more'
-    $includeProfanity.checked = state.includeProfanityInDictionary
-    $includeState.checked = state.includeStateInShareUrl
+    const state = this.#getState()
+    $footer.classList.toggle(Game.ClassNames.Expanded, state.drawerExpanded)
+    $expand.textContent = state.drawerExpanded ? 'expand_less' : 'expand_more'
+    $includeProfanity.checked = state.additionalSources.includes(Dictionary.Names.Profanity)
+    $includeSolution.checked = state.shareUrl.solution
   }
 
   #updateHint () {
@@ -422,6 +408,8 @@ export class Game {
     return $li
   }
 
+  static CacheKey = 'game'
+
   static ClassNames = Object.freeze({
     Container: 'container',
     Delete: 'delete',
@@ -430,6 +418,7 @@ export class Game {
     FlexLeft: 'flex-left',
     FlexRight: 'flex-right',
     Icon: 'material-symbols-outlined',
+    Share: 'share',
     Swap: 'swap',
     Word: 'word',
     WordInfo: 'word-info',
@@ -437,6 +426,65 @@ export class Game {
   })
 
   static Params = Object.freeze({
-    Expand: Cache.urlParams('expand')
+    DrawerExpanded: Cache.urlParams('drawerExpanded')
   })
+
+  static State = class {
+    additionalSources
+    drawerExpanded
+    shareUrl
+    version
+
+    constructor (drawerExpanded, shareUrl, additionalSources, version) {
+      this.drawerExpanded = drawerExpanded ?? false
+      this.shareUrl = shareUrl ?? new Game.State.ShareUrl()
+      this.additionalSources = additionalSources ?? []
+      this.version = version ?? 0
+    }
+
+    static fromObject (obj) {
+      return new Game.State(
+        obj.drawerExpanded,
+        optionally(obj.shareUrl, Game.State.ShareUrl.fromObject),
+        obj.additionalSources,
+        obj.version
+      )
+    }
+
+    static ShareUrl = class {
+      solution
+
+      constructor (solution) {
+        this.solution = solution ?? false
+      }
+
+      copy (settings) {
+        return new Game.State.ShareUrl(settings.solution ?? this.solution)
+      }
+
+      get (state, configuration) {
+        const url = getBaseUrl()
+
+        url.searchParams.set(Grid.Params.Id.key, configuration.id)
+        url.searchParams.set(Grid.Params.Mode.key, configuration.mode)
+        url.searchParams.set(Grid.Params.Width.key, configuration.width)
+
+        if (this.solution) {
+          url.searchParams.set(Grid.Params.Solution.key, Grid.Params.Solution.encode(state.solution))
+        }
+
+        return url.toString()
+      }
+
+      static fromObject (obj) {
+        return new Game.State.ShareUrl(obj.solution)
+      }
+    }
+
+    static Version = 1
+  }
+}
+
+if (urlParams.has(Grid.Params.Solution.key)) {
+  document.body.classList.add(Game.ClassNames.Share)
 }
