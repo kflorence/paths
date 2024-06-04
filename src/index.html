@@ -71,13 +71,21 @@
       <p>
         Using the generated grid of letters, your goal is to create a non-overlapping "path" through the grid by
         spelling words. Words can be spelled forwards or backwards. For example, "BELL" or "LLEB". Each word must start
-        or end on a letter adjacent to the last letter of the previous word (as displayed on the grid).
+        or end on a letter adjacent to the last letter of the previous word (the anchoring letter). That letter will be
+        marked on the grid with a dashed border. Additionally, the first letter of the first word will be marked on the
+        grid with a solid border. You can see an example of this above, where the word "PATHS" was spelled in the grid.
+        The first letter being "P" and the last letter being "S".
       </p>
       <p>
         Letters can be selected by either tapping on them one-by-one or by pressing and then sliding across several
         letters. When selecting one-by-one, the selection can be submitted by re-tapping the final selected letter.
         When pressing and sliding across several letters, the selection will be submitted automatically when you stop
         pressing.
+      </p>
+      <p>
+        The area directly beneath the grid will display your current letter selection. When a word is valid for
+        submission, it will turn green. Note that if the word you spell is not anchored to the existing path as
+        described above, it will not be considered valid.
       </p>
       <p>
         As you play, you may find it helpful to expand the drawer beneath the grid by tapping on the arrow
@@ -91,84 +99,26 @@
       <details>
         <summary>Pathfinder Mode (Default)</summary>
         <p>
-          <em>Pathfinder</em> is the default game mode. In this mode, the goal is to figure out the path used to
-          generate the grid by spelling out each word that forms the path. If one of the words you spell contains a
-          section of the path, that section of the path will be revealed on the grid by highlighting each matching cell.
+          <em>Pathfinder</em> is the default game mode. In this mode, the goal is to figure out the hidden words that
+          comprise the path through the grid, starting at the beginning of the path and working your way to the end.
+          Each path is randomly generated and unique, as are the words that comprise them.
         </p>
         <p>
-          For example, if the path word was "SUPERB" and you spelled "SUPER", it would highlight the five matching
-          cells:
+          The grid will begin with the first letter of the first word revealed. Using that letter, you can try to guess
+          the word that it belongs to. Each incorrect guess will reveal any letters that are shared between your guess
+          and that hidden word. Each subsequent guess must use all of the previously revealed letters. As you guess, pay
+          attention to the indicators displayed next to the words as you select them. These will tell you about the
+          length of your guess in comparison to the hidden word:
         </p>
-        <div class="flex-center">
-          <div class="example grid" data-width="3">
-            <div class="cell cell-hint">
-              <div class="background"><span class="content">s</span></div>
-            </div>
-            <div class="cell cell-hint">
-              <div class="background"><span class="content">p</span></div>
-            </div>
-            <div class="cell cell-hint">
-              <div class="background"><span class="content">e</span></div>
-            </div>
-            <div class="cell cell-hint">
-              <div class="background"><span class="content">u</span></div>
-            </div>
-            <div class="cell cell-hint">
-              <div class="background"><span class="content">r</span></div>
-            </div>
-            <div class="cell">
-              <div class="background"><span class="content">a</span></div>
-            </div>
-            <div class="cell">
-              <div class="background"><span class="content">b</span></div>
-            </div>
-            <div class="cell">
-              <div class="background"><span class="content">l</span></div>
-            </div>
-            <div class="cell">
-              <div class="background"><span class="content">e</span></div>
-            </div>
-          </div>
-        </div>
-        <p>
-          Keep in mind that the highlighting will stop as soon as the word you spell deviates from the path. For
-          example, if you were to spell "SUB" instead of "SUPER", it would only highlight two cells, even though the
-          "B" is used later in the path:
-        </p>
-        <div class="flex-center">
-          <div class="example grid" data-width="3">
-            <div class="cell cell-hint">
-              <div class="background"><span class="content">s</span></div>
-            </div>
-            <div class="cell">
-              <div class="background"><span class="content">p</span></div>
-            </div>
-            <div class="cell">
-              <div class="background"><span class="content">e</span></div>
-            </div>
-            <div class="cell cell-hint">
-              <div class="background"><span class="content">u</span></div>
-            </div>
-            <div class="cell">
-              <div class="background"><span class="content">r</span></div>
-            </div>
-            <div class="cell">
-              <div class="background"><span class="content">a</span></div>
-            </div>
-            <div class="cell">
-              <div class="background"><span class="content">b</span></div>
-            </div>
-            <div class="cell">
-              <div class="background"><span class="content">l</span></div>
-            </div>
-            <div class="cell">
-              <div class="background"><span class="content">e</span></div>
-            </div>
-          </div>
-        </div>
+        <ul>
+          <li><code>&gt;</code> - the hidden word is longer than your guess</li>
+          <li><code>&lt;</code> - the hidden word is shorter than your guess</li>
+          <li><code>=</code> - the hidden word is the same length as your guess</li>
+        </ul>
         <p>
           If you get stuck, you can tap the hint (<span class="material-symbols-outlined">help</span>) button, which
-          will highlight the next letter on the path. In the example above, it would highlight the "P" cell.
+          will reveal the next unrevealed letter in the hidden word. If the hint button is disabled, that means you have
+          already revealed all letters of the hidden word.
         </p>
       </details>
       <details>
