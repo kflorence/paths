@@ -109,7 +109,7 @@ export class Grid {
     const wordIndexes = Grid.getIndexes(cells)
     const secretWordIndex = state.getSecretWordIndex()
     const secretWordIndexes = state.configuration.wordIndexes[secretWordIndex] ?? []
-    const revealedIndexes = secretWordIndexes.filter((index) => wordIndexes.includes(index))
+    const revealedIndexes = wordIndexes.filter((index) => secretWordIndexes.includes(index))
     const hintIndexes = revealedIndexes.filter((index) => !state.solution.hints.includes(index))
 
     // Consider the spelled word a secret word if it is valid, the content matches that of the current secret word,
@@ -611,9 +611,13 @@ export class Grid {
       let content = cells[index].content
       const flags = new Flags()
 
-      // Handle hints
-      if (hints.includes(index)) {
+      // Handle cells that have a hint
+      const hintIndex = hints.indexOf(index)
+      if (hintIndex >= 0) {
         flags.add(Cell.Flags.Hint)
+        if (hintIndex === 0) {
+          flags.add(Cell.Flags.First)
+        }
       }
 
       // Handle swapped cells
@@ -629,10 +633,10 @@ export class Grid {
       if (pathIndex >= 0) {
         flags.add(Cell.Flags.Path)
 
-        const nextCellIndex = path[pathIndex + 1]
-        if (nextCellIndex !== undefined) {
+        const nextPathIndex = path[pathIndex + 1]
+        if (nextPathIndex !== undefined) {
           // Link current cell to next cell
-          const nextCell = this.#cells[nextCellIndex]
+          const nextCell = this.#cells[nextPathIndex]
           flags.add(Cell.FlagsByName[cell.getDirection(nextCell)])
         }
 

@@ -11,6 +11,7 @@ export class Generator {
   words
 
   #invalidSteps = {}
+  #maxTries
   #path = []
   #steps
   #tries = 0
@@ -18,7 +19,11 @@ export class Generator {
 
   constructor (configuration, dictionary) {
     this.rand = splitmix32(configuration.hash)
-    this.words = dictionary.getWords(this.rand, configuration.size)
+    this.words = dictionary.getWords(
+      this.rand,
+      configuration.size,
+      Math.ceil(configuration.width + (configuration.width / 2))
+    )
 
     const words = Array.from(this.words)
 
@@ -51,7 +56,8 @@ export class Generator {
     this.wordBoundaries = Generator.getWordBoundaries(this.words)
 
     this.#steps = new Array(configuration.size)
-    this.#restartThreshold = configuration.size * Math.floor(configuration.width / 2)
+    this.#restartThreshold = configuration.size * configuration.width
+    this.#maxTries = this.#restartThreshold * configuration.size
   }
 
   /**
@@ -168,7 +174,7 @@ export class Generator {
 
     console.debug(`Steps remaining: ${stepsRemaining}. Total tries: ${this.#tries}`)
 
-    if (this.#tries > this.configuration.size * 100) {
+    if (this.#tries > this.#maxTries) {
       // Shouldn't happen, but break the loop if it gets stuck for some reason.
       throw new Error(`Too many tries: ${this.#tries}. Stopping.`)
     } else if (this.#tries % this.#restartThreshold === 0) {

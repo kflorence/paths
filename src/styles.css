@@ -521,6 +521,10 @@ p.center {
   z-index: 2;
 }
 
+.grid .cell-first .background {
+  border: 2px solid #666;
+}
+
 .grid .cell-last .background {
   border: 2px dashed #666;
 }

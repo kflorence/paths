@@ -32,11 +32,18 @@ export class Dictionary {
    * Gets random words from the words dictionary until the length is met.
    * @param rand A PRNG used to choose indexes from the set of words.
    * @param length The exact total length of the picked words.
+   * @param maximumWordLength Optional maximum length for a picked word.
    * @returns {*[]|*} An array of words.
    */
-  getWords (rand, length) {
+  getWords (rand, length, maximumWordLength) {
     let availableWords = Array.from(this.words)
     let count = 0
+
+    if (maximumWordLength) {
+      availableWords = availableWords.filter((word) => word.length <= maximumWordLength)
+    }
+
+    console.debug(`getWords: ${length} characters with maximum word length of ${maximumWordLength}.`)
 
     const result = []
     function next () {
