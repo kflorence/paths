@@ -123,7 +123,7 @@ export class Game {
     const gridState = this.#grid.getState()
     const statistics = this.#grid.getStatistics(gridState)
 
-    const content = [`Path#${id} | ${size} | ${statistics.secretWordsGuessed}/${statistics.secretWordCount}`]
+    const content = [`Path#${id} | ${size} | ${statistics.hiddenWordsGuessed}/${statistics.hiddenWordCount}`]
 
     if (mode === Grid.Modes.Challenge) {
       content.push(`Score: ${statistics.score} / ${statistics.progress}%`)
@@ -274,7 +274,7 @@ export class Game {
       $info.classList.add(Game.ClassNames.WordInfo)
 
       if (this.#configuration.mode === Grid.Modes.Pathfinder) {
-        $info.textContent = getSign(selection.secretWordIndexes.length - selection.content.length)
+        $info.textContent = getSign(selection.hiddenWordIndexes.length - selection.content.length)
       } else {
         const configuration = this.#grid.getConfiguration()
         const move = new Grid.Move(Grid.Move.Types.Spell, { match: selection.match })
@@ -290,13 +290,13 @@ export class Game {
 
   #updateStatus () {
     const statistics = this.#grid.getStatistics()
-    const secretWords = `${statistics.secretWordsGuessed}/${statistics.secretWordCount}`
+    const hiddenWords = `${statistics.hiddenWordsGuessed}/${statistics.hiddenWordCount}`
     if (this.#configuration.mode === Grid.Modes.Challenge) {
       $status.textContent = statistics.score
       $statistics.replaceChildren(...[
         { name: 'Progress', value: `${statistics.progress}%` },
         { name: 'Average Word Length', value: statistics.averageWordLength },
-        { name: 'Secret Words Found', value: secretWords },
+        { name: 'Hidden Words Found', value: hiddenWords },
         { name: 'Your Best Score', value: `${statistics.best} (${statistics.bestDiff})` }
       ].map((item) => {
         const $content = document.createElement('span')
@@ -306,7 +306,7 @@ export class Game {
         return Game.getListItem($content, $value)
       }))
     } else {
-      $status.textContent = secretWords
+      $status.textContent = hiddenWords
     }
   }
 
@@ -369,7 +369,7 @@ export class Game {
       const $info = document.createElement('span')
       $info.classList.add(Game.ClassNames.WordInfo)
       $info.textContent = isPathfinderMode
-        ? getSign(state.configuration.words[data.secretWordIndex].length - word.content.length)
+        ? getSign(state.configuration.words[data.hiddenWordIndex].length - word.content.length)
         : word.points
       const $delete = isPathfinderMode ? undefined : Game.getDeleteElement(index)
       return Game.getListItem([$index, $word, $info], $delete)

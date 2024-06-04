@@ -170,6 +170,8 @@ export class Dictionary {
     }
   }
 
+  static BaseUrl = 'https://raw.githubusercontent.com/kflorence/word-list/'
+
   static Names = Object.freeze({
     Default: 'default',
     Profanity: 'profanity'
@@ -178,11 +180,11 @@ export class Dictionary {
   static Sources = Object.freeze({
     Default: new Dictionary.Source(
       Dictionary.Names.Default,
-      'https://raw.githubusercontent.com/kflorence/word-list/main/words.txt?v=1'
+      `${Dictionary.BaseUrl}/d00c2d094a4a4c68da1722eec3e83cd5078af771/words.txt`
     ),
     Profanity: new Dictionary.Source(
       Dictionary.Names.Profanity,
-      'https://raw.githubusercontent.com/kflorence/word-list/main/words-profanity.txt?v=1'
+      `${Dictionary.BaseUrl}/d00c2d094a4a4c68da1722eec3e83cd5078af771/words-profanity.txt`
     )
   })
 

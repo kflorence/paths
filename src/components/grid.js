@@ -107,36 +107,36 @@ export class Grid {
 
     const state = this.getState()
     const wordIndexes = Grid.getIndexes(cells)
-    const secretWordIndex = state.getSecretWordIndex()
-    const secretWordIndexes = state.configuration.wordIndexes[secretWordIndex] ?? []
-    const revealedIndexes = wordIndexes.filter((index) => secretWordIndexes.includes(index))
+    const hiddenWordIndex = state.getHiddenWordIndex()
+    const hiddenWordIndexes = state.configuration.wordIndexes[hiddenWordIndex] ?? []
+    const revealedIndexes = wordIndexes.filter((index) => hiddenWordIndexes.includes(index))
     const hintIndexes = revealedIndexes.filter((index) => !state.solution.hints.includes(index))
 
-    // Consider the spelled word a secret word if it is valid, the content matches that of the current secret word,
+    // Consider the spelled word a hidden word if it is valid, the content matches that of the current hidden word,
     // and the same path indexes are used to create the word, regardless of order.
-    const isSecretWord = (
+    const isHiddenWord = (
       isValid &&
-      state.configuration.words[secretWordIndex] === content &&
-      arrayEquals(secretWordIndexes, wordIndexes, sortNumerically)
+      state.configuration.words[hiddenWordIndex] === content &&
+      arrayEquals(hiddenWordIndexes, wordIndexes, sortNumerically)
     )
     const updateIndexes = lastPathCell ? pathIndexes.concat([lastPathCell.getIndex()]) : pathIndexes
 
     if (isValid && this.#configuration.mode === Grid.Modes.Pathfinder) {
-      const allSecretWordHintIndexesUsed = secretWordIndexes
+      const allHiddenWordHintIndexesUsed = hiddenWordIndexes
         .every((index) => !state.solution.hints.includes(index) || wordIndexes.includes(index))
       const previouslyGuessedWordsByIndex = state.solution.moves
-        .filter((move) => move.type === Grid.Move.Types.Spell && move.value.secretWordIndex === secretWordIndex)
+        .filter((move) => move.type === Grid.Move.Types.Spell && move.value.hiddenWordIndex === hiddenWordIndex)
         .map((move) => move.value.index)
       const previouslyGuessedWordIndexes = state.solution.words
         .filter((word, index) => previouslyGuessedWordsByIndex.includes(index))
       // Reject words where not all previous hint indexes have been used and duplicate guesses (by path index) for the
-      // same secret word.
-      isValid = allSecretWordHintIndexesUsed && !arrayIncludes(previouslyGuessedWordIndexes, wordIndexes)
-      if (isValid && isSecretWord) {
-        // Ensure accepted secret words are properly anchored in the path
+      // same hidden word.
+      isValid = allHiddenWordHintIndexesUsed && !arrayIncludes(previouslyGuessedWordIndexes, wordIndexes)
+      if (isValid && isHiddenWord) {
+        // Ensure accepted hidden words are properly anchored in the path
         const lastPathIndex = pathIndexes.length - 1
-        const lastSecretWordIndex = secretWordIndexes.length - 1
-        if (pathIndexes[lastPathIndex] !== secretWordIndexes[lastSecretWordIndex]) {
+        const lastHiddenWordIndex = hiddenWordIndexes.length - 1
+        if (pathIndexes[lastPathIndex] !== hiddenWordIndexes[lastHiddenWordIndex]) {
           pathIndexes.reverse()
         }
       }
@@ -149,9 +149,9 @@ export class Grid {
       hintIndexes,
       updateIndexes,
       wordIndexes,
-      secretWordIndex,
-      secretWordIndexes,
-      isSecretWord,
+      hiddenWordIndex,
+      hiddenWordIndexes,
+      isHiddenWord,
       isValid
     )
   }
@@ -212,7 +212,7 @@ export class Grid {
   }
 
   #getNextHint (state) {
-    return state.configuration.wordIndexes[state.getSecretWordIndex()]?.find((index) =>
+    return state.configuration.wordIndexes[state.getHiddenWordIndex()]?.find((index) =>
       !state.solution.hints.includes(index))
   }
 
@@ -599,7 +599,7 @@ export class Grid {
     const path = state.solution.path
     const swaps = state.solution.swaps
     const words = this.#configuration.mode === Grid.Modes.Pathfinder
-      // In pathfinder mode, only secret words count
+      // In pathfinder mode, only hidden words count
       ? state.configuration.wordIndexes
       // In challenge mode all spelled words count
       : state.solution.words
@@ -667,7 +667,7 @@ export class Grid {
           const wordIndex = wordIndexes.indexOf(index)
 
           if (arrayIncludes(state.configuration.wordIndexes, wordIndexes, sortNumerically)) {
-            // The user has spelled a secret word using the optimal path.
+            // The user has spelled a hidden word using the optimal path.
             flags.add(Cell.Flags.Revealed)
           }
 
@@ -716,8 +716,8 @@ export class Grid {
     // Update moves
     const index = state.solution.words.length - 1
     const match = selection.match
-    const secretWordIndex = selection.secretWordIndex
-    state.solution.moves.push(new Grid.Move(Grid.Move.Types.Spell, { index, match, secretWordIndex }))
+    const hiddenWordIndex = selection.hiddenWordIndex
+    state.solution.moves.push(new Grid.Move(Grid.Move.Types.Spell, { index, match, hiddenWordIndex }))
 
     // Update path
     switch (this.#configuration.mode) {
@@ -727,11 +727,11 @@ export class Grid {
         break
       }
       case Grid.Modes.Pathfinder: {
-        // In pathfinding mode, only secret words can be added to the path.
-        if (selection.isSecretWord) {
+        // In pathfinding mode, only hidden words can be added to the path.
+        if (selection.isHiddenWord) {
           state.solution.path.push(...selection.pathIndexes)
         } else if (selection.hintIndexes.length) {
-          // Add hints to any portion of the next secret word that were revealed by the valid word.
+          // Add hints to any portion of the next hidden word that were revealed by the valid word.
           state.solution.hints.push(...selection.hintIndexes)
         }
         break
@@ -946,12 +946,12 @@ export class Grid {
     cells
     content
     hintIndexes
-    isSecretWord
+    isHiddenWord
     isValidWord
     match
     pathIndexes
-    secretWordIndex
-    secretWordIndexes
+    hiddenWordIndex
+    hiddenWordIndexes
     updateIndexes
     wordIndexes
 
@@ -962,9 +962,9 @@ export class Grid {
       hintIndexes,
       updateIndexes,
       wordIndexes,
-      secretWordIndex,
-      secretWordIndexes,
-      isSecretWord,
+      hiddenWordIndex,
+      hiddenWordIndexes,
+      isHiddenWord,
       isValidWord
     ) {
       this.cells = cells
@@ -973,12 +973,12 @@ export class Grid {
       this.hintIndexes = hintIndexes ?? []
       this.updateIndexes = updateIndexes ?? []
       this.wordIndexes = wordIndexes ?? []
-      this.secretWordIndex = secretWordIndex ?? -1
-      this.secretWordIndexes = secretWordIndexes
-      this.isSecretWord = isSecretWord ?? false
+      this.hiddenWordIndex = hiddenWordIndex ?? -1
+      this.hiddenWordIndexes = hiddenWordIndexes
+      this.isHiddenWord = isHiddenWord ?? false
       this.isValidWord = isValidWord ?? false
 
-      this.match = this.isSecretWord
+      this.match = this.isHiddenWord
         ? Grid.Match.Exact
         : (this.hintIndexes.length ? Grid.Match.Partial : Grid.Match.None)
     }
@@ -1001,7 +1001,7 @@ export class Grid {
       return this.configuration.path.slice(this.solution.path.length)
     }
 
-    getSecretWordIndex (cellIndex) {
+    getHiddenWordIndex (cellIndex) {
       // Use the index of the next cell in the configured path by default
       cellIndex ??= this.configuration.path[this.solution.path.length]
       return this.configuration.wordIndexes.findIndex((indexes) => indexes.includes(cellIndex))
@@ -1095,11 +1095,11 @@ export class Grid {
     averageWordLength
     best
     bestDiff
+    hiddenWordCount
+    hiddenWordsGuessed
     moves
     progress
     score
-    secretWordCount
-    secretWordsGuessed
     swapCount
     wordCount
 
@@ -1116,12 +1116,12 @@ export class Grid {
       this.averageWordLength = length === 0 ? 0 : (length / words.length).toPrecision(2)
       this.best = state.user.highScore
       this.bestDiff = diff === 0 ? '=' : (diff < 0 ? diff : `+${diff}`)
+      this.hiddenWordCount = state.configuration.words.length
+      this.hiddenWordsGuessed = state.configuration.words
+        .filter((content) => words.some((word) => word.content === content)).length
       this.moves = state.solution.moves
       this.progress = Math.trunc((state.solution.path.length / size) * 100)
       this.score = score
-      this.secretWordCount = state.configuration.words.length
-      this.secretWordsGuessed = state.configuration.words
-        .filter((content) => words.some((word) => word.content === content)).length
       this.swapCount = state.solution.swaps.length
       this.wordCount = words.length
     }
