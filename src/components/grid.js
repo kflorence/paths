@@ -49,6 +49,13 @@ export class Grid {
       this.#state.set(initialState)
     }
 
+    if (urlParams.has('reset')) {
+      console.debug(`Resetting solution for path '${this.#configuration.id}'.`)
+      this.#resetSolution()
+      urlParams.delete('reset')
+      history.replaceState(history.state, 'reset', url)
+    }
+
     document.body.classList.add(getClassName(Grid.Name, 'mode', this.#configuration.mode))
     $grid.dataset.width = this.#configuration.width
 
@@ -72,7 +79,7 @@ export class Grid {
       return new Grid.Selection(cells)
     }
 
-    const pathIndexes = Grid.getIndexes(cells)
+    let pathIndexes = Grid.getIndexes(cells)
     const lastPathCell = this.#getLastPathCell()
     if (lastPathCell) {
       // Make sure the selection can anchor to the existing path.
@@ -133,12 +140,9 @@ export class Grid {
       // same hidden word.
       isValid = allHiddenWordHintIndexesUsed && !arrayIncludes(previouslyGuessedWordIndexes, wordIndexes)
       if (isValid && isHiddenWord) {
-        // Ensure accepted hidden words are properly anchored in the path
-        const lastPathIndex = pathIndexes.length - 1
-        const lastHiddenWordIndex = hiddenWordIndexes.length - 1
-        if (pathIndexes[lastPathIndex] !== hiddenWordIndexes[lastHiddenWordIndex]) {
-          pathIndexes.reverse()
-        }
+        // Ensure that the path matches the generated path to prevent the user from getting stuck in the case they
+        // spell a matching hidden word using the same indexes but in a different order.
+        pathIndexes = Array.from(hiddenWordIndexes)
       }
     }
 
