@@ -829,7 +829,7 @@ export class Grid {
   static Today = Date.parse(Grid.DefaultId)
   static Widths = Object.freeze([5, 7, 9])
 
-  static DefaultMode = Grid.Modes.Pathfinder
+  static DefaultMode = Grid.Modes.Challenge
   static DefaultWidth = Grid.Widths[0]
 
   static SelectionStart = class {

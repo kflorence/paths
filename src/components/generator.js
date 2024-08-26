@@ -26,15 +26,15 @@ export class Generator {
     )
 
     const words = Array.from(this.words)
-
-    // Randomly reverse up to half of the words
-    const reverseCount = randomIntInclusive(this.rand, Math.floor(words.length / 2))
-    console.debug(`Reversing ${reverseCount} words.`)
-    getIndexesUnique(this.rand, words, reverseCount)
-      .forEach((index) => { words[index] = reverseString(words[index]) })
-
     const characters = words.reduce((characters, word) => characters.concat(word.split('')), [])
+
     if (configuration.mode === Grid.Modes.Challenge) {
+      // Randomly reverse up to half of the words
+      const reverseCount = randomIntInclusive(this.rand, Math.floor(words.length / 2))
+      console.debug(`Reversing ${reverseCount} words.`)
+      getIndexesUnique(this.rand, words, reverseCount)
+        .forEach((index) => { words[index] = reverseString(words[index]) })
+
       // Randomly swap up to 1/8 of characters
       const swapCount = randomIntInclusive(this.rand, Math.floor(characters.length / 8)) * 2
       console.debug(`Swapping ${swapCount} characters.`)
