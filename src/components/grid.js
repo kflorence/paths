@@ -119,15 +119,20 @@ export class Grid {
     const revealedIndexes = wordIndexes.filter((index) => hiddenWordIndexes.includes(index))
     const hintIndexes = revealedIndexes.filter((index) => !state.solution.hints.includes(index))
 
-    // Consider the spelled word a hidden word if it is valid, the content matches that of the current hidden word,
-    // and the same path indexes are used to create the word, regardless of order.
-    const isHiddenWord = (
-      isValid &&
-      state.configuration.words[hiddenWordIndex] === content &&
-      arrayEquals(hiddenWordIndexes, wordIndexes, sortNumerically)
+    const isHiddenWord = isValid && (
+      this.#configuration.mode === Grid.Modes.Challenge ?
+        // In challenge mode, the spelled word must exist in the list of words used to generate the grid
+        state.configuration.words.includes(content)
+      : (
+        // In pathfinder mode, the content must match that of the current hidden word
+        // and the same path indexes must be used to create the word, regardless of order.
+        isValid &&
+        state.configuration.words[hiddenWordIndex] === content &&
+        arrayEquals(hiddenWordIndexes, wordIndexes, sortNumerically)
+      )
     )
-    const updateIndexes = lastPathCell ? pathIndexes.concat([lastPathCell.getIndex()]) : pathIndexes
 
+    const updateIndexes = lastPathCell ? pathIndexes.concat([lastPathCell.getIndex()]) : pathIndexes
     if (isValid && this.#configuration.mode === Grid.Modes.Pathfinder) {
       const allHiddenWordHintIndexesUsed = hiddenWordIndexes
         .every((index) => !state.solution.hints.includes(index) || wordIndexes.includes(index))
