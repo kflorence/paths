@@ -363,9 +363,12 @@ export class Game {
       const data = word.move.value
       const $index = document.createElement('span')
       $index.textContent = `${length - index}.`
-      const $word = document.createElement('span')
+      const $word = document.createElement('a')
       $word.classList.add(Game.ClassNames.Word, getClassName(Game.ClassNames.Word, 'match', data.match))
+      $word.href = 'https://en.wiktionary.org/wiki/' + word.content
+      $word.target = '_blank'
       $word.textContent = word.content
+      $word.title = 'See definition'
       const $info = document.createElement('span')
       $info.classList.add(Game.ClassNames.WordInfo)
       $info.textContent = isPathfinderMode
