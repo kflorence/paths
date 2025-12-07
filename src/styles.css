@@ -316,11 +316,6 @@ p.center {
   text-wrap: nowrap;
 }
 
-#words .word {
-  margin: 0 0.5em;
-  text-transform: uppercase;
-}
-
 .buttons {
   grid-gap: 1em;
   margin: 1em 0;
@@ -798,6 +793,13 @@ p.center {
 
 .tippy-box[data-theme~='custom'] > .tippy-content {
   padding: 0.5em 1em;
+}
+
+.word {
+  color: inherit;
+  margin: 0 0.5em;
+  text-transform: uppercase;
+  text-decoration: none;
 }
 
 .word-info {
