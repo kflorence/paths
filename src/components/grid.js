@@ -171,7 +171,7 @@ export class Grid {
 
   getStatistics (state) {
     state ??= this.getState()
-    return new Grid.Statistics(this.#configuration, state, this.getWords(state))
+    return new Grid.Statistics(this.#configuration, state, this.getWords(state), this.#cells)
   }
 
   getSwaps () {
@@ -1104,6 +1104,7 @@ export class Grid {
     averageWordLength
     best
     bestDiff
+    bestPossible
     hiddenWordCount
     hiddenWordsGuessed
     moves
@@ -1112,7 +1113,7 @@ export class Grid {
     swapCount
     wordCount
 
-    constructor (configuration, state, words) {
+    constructor (configuration, state, words, cells) {
       const { size } = configuration
       const { length, points } = words.reduce(
         (acc, word) => ({ length: acc.length + word.content.length, points: acc.points + word.points }),
@@ -1122,9 +1123,18 @@ export class Grid {
       const score = points + (length === size ? size : 0)
       const diff = state.user.highScore - score
 
+      const hiddenWords = state.configuration.words.map((content, index) =>
+        new Word(
+          configuration.width,
+          state.configuration.wordIndexes[index].map((index) => cells[index]),
+          new Grid.Move(Grid.Move.Types.Spell, { match: Grid.Match.Exact })
+        )
+      )
+
       this.averageWordLength = length === 0 ? 0 : (length / words.length).toPrecision(2)
       this.best = state.user.highScore
       this.bestDiff = diff === 0 ? '=' : (diff < 0 ? diff : `+${diff}`)
+      this.bestPossible = hiddenWords.reduce((points, word) => points + word.points, 0) + size
       this.hiddenWordCount = state.configuration.words.length
       this.hiddenWordsGuessed = state.configuration.words
         .filter((content) => words.some((word) => word.content === content)).length
