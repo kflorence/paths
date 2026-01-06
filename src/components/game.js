@@ -126,7 +126,7 @@ export class Game {
     const content = [`Path#${id} | ${size} | ${statistics.hiddenWordsGuessed}/${statistics.hiddenWordCount}`]
 
     if (mode === Grid.Modes.Challenge) {
-      content.push(`Score: ${statistics.score} / ${statistics.progress}%`)
+      content.push(`Score: ${statistics.score} / ${statistics.bestPossible} (${statistics.progress})%`)
     }
 
     let moves = ''
