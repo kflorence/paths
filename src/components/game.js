@@ -297,7 +297,8 @@ export class Game {
         { name: 'Progress', value: `${statistics.progress}%` },
         { name: 'Average Word Length', value: statistics.averageWordLength },
         { name: 'Hidden Words Found', value: hiddenWords },
-        { name: 'Your Best Score', value: `${statistics.best} (${statistics.bestDiff})` }
+        { name: 'Your Best Score', value: `${statistics.best} (${statistics.bestDiff})` },
+        { name: 'Best Possible Score', value: statistics.bestPossible }
       ].map((item) => {
         const $content = document.createElement('span')
         $content.textContent = item.name
