@@ -8,7 +8,7 @@ import {
   arrayEquals,
   arrayIncludes,
   cyrb53,
-  getClassName,
+  getClassName, getDateId,
   history,
   optionally, reverseString, sortNumerically,
   url,
@@ -791,14 +791,7 @@ export class Grid {
   static Name = 'grid'
   static ClassNames = Object.freeze({ Loading: getClassName(Grid.Name, 'loading') })
   static DateRegex = /^\d{4}-\d{2}-\d{2}$/
-  static DefaultId = (() => {
-    // The ID for the daily puzzle
-    const date = new Date()
-    const year = date.getFullYear()
-    const month = (date.getMonth() + 1).toString().padStart(2, '0')
-    const day = date.getDate().toString().padStart(2, '0')
-    return `${year}-${month}-${day}`
-  })()
+  static DefaultId = getDateId(new Date())
 
   static Events = Object.freeze({
     Selection: getClassName(Grid.Name, 'selection'),
