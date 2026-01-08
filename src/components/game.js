@@ -3,7 +3,17 @@ import { EventListeners } from './eventListeners'
 import Tippy from 'tippy.js'
 import 'tippy.js/dist/tippy.css'
 import { State } from './state'
-import { getBaseUrl, getClassName, getSign, optionally, reload, url, urlParams, writeToClipboard } from './util'
+import {
+  getBaseUrl,
+  getClassName,
+  getDateId,
+  getSign,
+  optionally,
+  reload,
+  url,
+  urlParams,
+  writeToClipboard
+} from './util'
 import { Cell } from './cell'
 import { Cache } from './cache'
 import { Dictionary } from './dictionary'
@@ -11,6 +21,8 @@ import { Word } from './word'
 
 const $expand = document.getElementById('expand')
 const $footer = document.getElementById('footer')
+const $hiddenWords = document.getElementById('hidden-words')
+const $hiddenWordsList = document.getElementById('hidden-words-list')
 const $hint = document.getElementById('hint')
 const $includeProfanity = document.getElementById('include-profanity')
 const $includeSolution = document.getElementById('include-solution')
@@ -59,9 +71,10 @@ export class Game {
 
     const params = new URLSearchParams(url.search)
     params.set(Grid.Params.Id.key, crypto.randomUUID().split('-')[0])
-
     $new.href = `?${params.toString()}`
-    $path.href = `?${Grid.Params.Id.key}=${this.#configuration.id}`
+
+    params.set(Grid.Params.Id.key, this.#configuration.id)
+    $path.href = `?${params.toString()}`
     $path.textContent = this.#configuration.id
 
     this.#eventListeners.add([
@@ -101,6 +114,7 @@ export class Game {
     await this.#dictionary.load(Dictionary.Sources.Default)
     this.#grid.setup()
     this.update()
+    this.#updateHiddenWords()
 
     const state = this.#getState()
 
@@ -247,6 +261,38 @@ export class Game {
     $includeSolution.checked = state.shareUrl.solution
   }
 
+  #updateHiddenWords () {
+    const isToday = this.#configuration.id === Grid.DefaultId
+    if (isToday) {
+      // For the current day, just display a link to the previous day's words
+      const date = new Date()
+      date.setDate(date.getDate() - 1)
+      const previousId = getDateId(date)
+      const a = document.createElement('a')
+      const params = new URLSearchParams(url.search)
+      params.set(Grid.Params.Id.key, previousId)
+      a.href = `?${params.toString()}#hidden-words`
+      a.target = '_blank'
+      a.textContent = "Yesterday's Hidden Words"
+      $hiddenWords.replaceChildren(a)
+    } else {
+      if (url.hash.includes('hidden-words')) {
+        $hiddenWords.querySelector('details').setAttribute('open', '')
+      }
+      const state = this.#grid.getState()
+      state.configuration.words.forEach((word) => {
+        const li = document.createElement('li')
+        const a = document.createElement('a')
+        a.href = Game.getWordUrl(word)
+        a.target = '_blank'
+        a.textContent = word.toString()
+        a.title = 'See definition'
+        li.append(a)
+        $hiddenWordsList.append(li)
+      })
+    }
+  }
+
   #updateHint () {
     $hint.classList.toggle(Game.ClassNames.Disabled, !this.#grid.hasHint())
   }
@@ -366,7 +412,7 @@ export class Game {
       $index.textContent = `${length - index}.`
       const $word = document.createElement('a')
       $word.classList.add(Game.ClassNames.Word, getClassName(Game.ClassNames.Word, 'match', data.match))
-      $word.href = 'https://en.wiktionary.org/wiki/' + word.content
+      $word.href = Game.getWordUrl(word.content)
       $word.target = '_blank'
       $word.textContent = word.content
       $word.title = 'See definition'
@@ -410,6 +456,10 @@ export class Game {
     }
 
     return $li
+  }
+
+  static getWordUrl (word) {
+    return 'https://en.wiktionary.org/wiki/' + encodeURIComponent(word)
   }
 
   static CacheKey = 'game'

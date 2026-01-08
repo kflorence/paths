@@ -226,6 +226,17 @@ p.center {
   width: 100%;
 }
 
+#hidden-words-list {
+  list-style: inside decimal;
+}
+
+#hidden-words-list a {
+  color: #d2d3cd;
+  font-weight: normal;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
 #letter-points .letters {
   text-transform: uppercase;
 }
@@ -348,9 +359,11 @@ p.center {
 }
 
 .drawer h3,
-.drawer summary {
+.drawer summary,
+.drawer a {
   color: white;
   font-size: 1em;
+  font-weight: bold;
   margin: 0 0 0.5em 0;
 }
 
