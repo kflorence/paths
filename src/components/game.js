@@ -137,11 +137,13 @@ export class Game {
     const gridState = this.#grid.getState()
     const statistics = this.#grid.getStatistics(gridState)
 
-    const content = [`Path#${id} | ${size} | ${statistics.hiddenWordsGuessed}/${statistics.hiddenWordCount}`]
-
-    if (mode === Grid.Modes.Challenge) {
-      content.push(`Score: ${statistics.score} / ${statistics.bestPossible} (${statistics.progress})%`)
-    }
+    const content = [
+      `Path#${id} | ${size}` + (
+        mode === Grid.Modes.Challenge
+          ? ` | ${statistics.score}/${statistics.bestPossible}`
+          : ''
+      )
+    ]
 
     let moves = ''
     const lastMovesIndex = statistics.moves.length - 1
