@@ -6,3 +6,9 @@ $info.addEventListener('click', () => {
     $infoDialog.showModal()
   }
 })
+
+$infoDialog.addEventListener('click', (event) => {
+  if (event.target === $infoDialog) {
+    $infoDialog.close()
+  }
+})
