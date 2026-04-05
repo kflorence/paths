@@ -28,8 +28,14 @@ dialog {
   box-shadow: 0 0 0.75rem 0.5rem rgba(0, 0, 0, 0.25);
   border: none;
   border-radius: 16px;
+  display: none;
+  flex-direction: column;
   padding: 0;
   width: 50%;
+}
+
+dialog[open] {
+  display: flex;
 }
 
 dialog a {
@@ -101,6 +107,10 @@ dialog details p {
   padding-right: 0;
 }
 
+dialog h1 {
+  margin: 0;
+}
+
 dialog h2 {
   font-size: 1.1rem;
   margin: 0;
@@ -110,10 +120,12 @@ dialog h2 {
 dialog header {
   align-items: center;
   background-color: #333;
+  box-sizing: border-box;
   color: white;
   display: flex;
   font-size: 1em;
   padding: 1rem;
+  width: 100%;
 }
 
 dialog header button {
@@ -128,9 +140,11 @@ dialog p {
 
 dialog main {
   background-color: #d4d7d1;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   padding-top: 1em;
+  overflow-y: scroll;
 }
 
 dialog footer {

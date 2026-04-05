@@ -3,6 +3,7 @@
   "source": "src/index.html",
   "scripts": {
     "build": "parcel build --public-url 'https://kflorence.github.io/paths'",
+    "clean": "rm -rf .parcel-cache dist",
     "start": "parcel",
     "test": "npm run test-lint",
     "test-lint": "standard"
